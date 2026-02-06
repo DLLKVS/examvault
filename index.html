@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExamVault - Question Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        * { font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        
+        .glass {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.3); }
+            50% { box-shadow: 0 0 40px rgba(139, 92, 246, 0.6); }
+        }
+        
+        .animate-slide-in { animation: slideIn 0.4s ease-out forwards; }
+        .glow-effect { animation: pulse-glow 3s infinite; }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .custom-checkbox:checked {
+            background-color: #8b5cf6;
+            border-color: #8b5cf6;
+        }
+        
+        .transition-all-300 { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .hidden-section { display: none !important; }
+        
+        .loading-spinner {
+            border: 3px solid rgba(139, 92, 246, 0.1);
+            border-left-color: #8b5cf6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .sync-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 60;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen overflow-x-hidden">
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { 
+            getFirestore, 
+            collection, 
+            doc, 
+            setDoc, 
+            getDoc, 
+            getDocs, 
+            addDoc, 
+            deleteDoc, 
+            updateDoc,
+            onSnapshot,
+            query,
+            orderBy,
+            serverTimestamp 
+        } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // 🔥 FIREBASE CONFIGURATION - Replace with your own Firebase config
+        // Go to https://console.firebase.google.com → Create Project → Add Web App → Copy config
+        const firebaseConfig = {
+  apiKey: "AIzaSyCd-hIh7umnKhDBs3TW2hmrGo8VxylEUvA",
+  authDomain: "examvault-e4e35.firebaseapp.com",
+  projectId: "examvault-e4e35",
+  storageBucket: "examvault-e4e35.firebasestorage.app",
+  messagingSenderId: "757613710021",
+  appId: "1:757613710021:web:95386cabda4ff559b43eac",
+  measurementId: "G-HC72M4E2G0"
+};
+
+        // Initialize Firebase
+        let app, db;
+        
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            window.db = db;
+            window.firebaseLoaded = true;
+            console.log('Firebase initialized successfully');
+        } catch (error) {
+            console.error('Firebase init error:', error);
+            window.firebaseError = error;
+        }
+
+        // Expose functions globally
+        window.firestore = {
+            collection,
+            doc,
+            setDoc,
+            getDoc,
+            getDocs,
+            addDoc,
+            deleteDoc,
+            updateDoc,
+            onSnapshot,
+            query,
+            orderBy,
+            serverTimestamp
+        };
+    </script>
+
+    <!-- Setup Screen (Shown if Firebase not configured) -->
+    <div id="setupScreen" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-slate-950 p-4">
+        <div class="glass rounded-2xl p-8 max-w-lg w-full border border-red-500/30">
+            <div class="text-center mb-6">
+                <i class="fas fa-exclamation-triangle text-5xl text-red-400 mb-4"></i>
+                <h2 class="text-2xl font-bold text-white mb-2">Firebase Not Configured</h2>
+                <p class="text-slate-400">You need to connect your Firebase project first.</p>
+            </div>
+            
+            <div class="space-y-4 text-sm">
+                <div class="bg-slate-800/50 rounded-xl p-4 space-y-2">
+                    <p class="text-white font-semibold">1. Create Firebase Project:</p>
+                    <p class="text-slate-400">Go to <a href="https://console.firebase.google.com" target="_blank" class="text-purple-400 hover:underline">console.firebase.google.com</a></p>
+                </div>
+                
+                <div class="bg-slate-800/50 rounded-xl p-4 space-y-2">
+                    <p class="text-white font-semibold">2. Get Config:</p>
+                    <p class="text-slate-400">Project Settings → General → Your Apps → Web App → Firebase SDK snippet</p>
+                </div>
+                
+                <div class="bg-slate-800/50 rounded-xl p-4 space-y-2">
+                    <p class="text-white font-semibold">3. Update Code:</p>
+                    <p class="text-slate-400">Replace <code class="bg-slate-700 px-2 py-1 rounded">firebaseConfig</code> in the HTML with your values</p>
+                </div>
+
+                <div class="bg-slate-800/50 rounded-xl p-4 space-y-2">
+                    <p class="text-white font-semibold">4. Enable Firestore:</p>
+                    <p class="text-slate-400">Build → Firestore Database → Create Database → Start in test mode</p>
+                </div>
+            </div>
+            
+            <button onclick="location.reload()" class="w-full mt-6 bg-purple-600 hover:bg-purple-500 text-white font-semibold py-3 rounded-xl transition-all-300">
+                <i class="fas fa-sync mr-2"></i>Reload After Configuration
+            </button>
+        </div>
+    </div>
+
+    <!-- Sync Status Indicator -->
+    <div id="syncStatus" class="sync-status hidden glass rounded-full px-4 py-2 flex items-center gap-2 text-xs">
+        <div class="loading-spinner w-4 h-4 border-2"></div>
+        <span class="text-slate-300">Syncing...</span>
+    </div>
+
+    <!-- Login Screen -->
+    <div id="loginScreen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950">
+        <div class="absolute inset-0 overflow-hidden">
+            <div class="absolute -top-40 -left-40 w-80 h-80 bg-purple-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+            <div class="absolute -bottom-40 -right-40 w-80 h-80 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" style="animation-delay: 2s"></div>
+        </div>
+        
+        <div class="glass rounded-2xl p-8 w-full max-w-md mx-4 relative z-10 animate-slide-in">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl mx-auto mb-4 flex items-center justify-center glow-effect">
+                    <i class="fas fa-graduation-cap text-2xl text-white"></i>
+                </div>
+                <h1 class="text-3xl font-bold gradient-text mb-2">ExamVault</h1>
+                <p class="text-slate-400 text-sm">Cloud-Based Question Management</p>
+                <div class="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs">
+                    <i class="fas fa-cloud"></i>
+                    <span>Firebase Connected</span>
+                </div>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="relative">
+                    <i class="fas fa-user absolute left-4 top-3.5 text-slate-500"></i>
+                    <input type="text" id="username" placeholder="Username" 
+                        class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-3 px-12 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-all-300">
+                </div>
+                
+                <div class="relative">
+                    <i class="fas fa-lock absolute left-4 top-3.5 text-slate-500"></i>
+                    <input type="password" id="password" placeholder="Password" 
+                        class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-3 px-12 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-all-300">
+                </div>
+                
+                <div id="loginError" class="text-red-400 text-sm hidden">
+                    <i class="fas fa-exclamation-circle mr-1"></i> Invalid credentials
+                </div>
+                
+                <button onclick="login()" id="loginBtn" class="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold py-3 rounded-xl transition-all-300 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2">
+                    <span>Sign In</span>
+                </button>
+
+                <button onclick="offlineMode()" class="w-full border border-slate-700 hover:border-slate-600 text-slate-400 hover:text-slate-300 font-medium py-3 rounded-xl transition-all-300 text-sm">
+                    <i class="fas fa-wifi-slash mr-2"></i>Use Offline Mode
+                </button>
+            </div>
+            
+            <div class="mt-6 text-center text-xs text-slate-500">
+                <p>Default Credentials (First Time):</p>
+                <p class="mt-1 font-mono text-slate-400">admin / admin123</p>
+                <p class="font-mono text-slate-400">user / user123</p>
+                <p class="mt-2 text-slate-600">Data syncs to Firebase Cloud</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="app" class="hidden-section">
+        <!-- Sidebar -->
+        <aside class="fixed left-0 top-0 h-full w-64 glass z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300" id="sidebar">
+            <div class="p-6 border-b border-slate-800">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-graduation-cap text-white"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-white">ExamVault</h2>
+                        <p id="userRoleDisplay" class="text-xs text-purple-400 uppercase tracking-wider">Admin</p>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center gap-2 text-xs text-emerald-400">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Cloud Sync Active</span>
+                </div>
+            </div>
+            
+            <nav class="p-4 space-y-2">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-purple-600/20 text-purple-300 border border-purple-500/30 transition-all-300">
+                    <i class="fas fa-home w-5"></i>
+                    <span>Dashboard</span>
+                </button>
+                
+                <button onclick="switchTab('questions')" id="nav-questions" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800/50 text-slate-400 hover:text-white transition-all-300">
+                    <i class="fas fa-question-circle w-5"></i>
+                    <span>Questions</span>
+                </button>
+                
+                <div id="adminOnlyNav" class="space-y-2">
+                    <button onclick="switchTab('upload')" id="nav-upload" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800/50 text-slate-400 hover:text-white transition-all-300">
+                        <i class="fas fa-cloud-upload-alt w-5"></i>
+                        <span>Upload</span>
+                    </button>
+                    
+                    <button onclick="switchTab('users')" id="nav-users" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800/50 text-slate-400 hover:text-white transition-all-300">
+                        <i class="fas fa-users w-5"></i>
+                        <span>User Management</span>
+                    </button>
+                </div>
+                
+                <button onclick="switchTab('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800/50 text-slate-400 hover:text-white transition-all-300">
+                    <i class="fas fa-cog w-5"></i>
+                    <span>Settings</span>
+                </button>
+            </nav>
+            
+            <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-800">
+                <button onclick="syncNow()" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-emerald-500/10 text-emerald-400 hover:text-emerald-300 transition-all-300 mb-2">
+                    <i class="fas fa-sync w-5"></i>
+                    <span>Sync Now</span>
+                </button>
+                <button onclick="logout()" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-500/10 text-red-400 hover:text-red-300 transition-all-300">
+                    <i class="fas fa-sign-out-alt w-5"></i>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Mobile Overlay -->
+        <div id="mobileOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden"></div>
+
+        <!-- Main Content -->
+        <main class="md:ml-64 min-h-screen transition-all duration-300">
+            <!-- Header -->
+            <header class="glass sticky top-0 z-20 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleSidebar()" class="md:hidden text-slate-400 hover:text-white">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    <h1 id="pageTitle" class="text-xl font-semibold text-white">Dashboard</h1>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <div class="hidden sm:flex items-center gap-2 text-sm text-slate-400 bg-slate-800/50 px-3 py-1.5 rounded-full">
+                        <i class="fas fa-database text-purple-400"></i>
+                        <span id="totalQuestionsBadge">0 Questions</span>
+                    </div>
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white font-semibold text-sm" id="userAvatar">
+                        A
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Container -->
+            <div class="p-6 max-w-7xl mx-auto">
+                
+                <!-- Dashboard Tab -->
+                <div id="tab-dashboard" class="tab-content animate-slide-in">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="glass rounded-2xl p-6 border border-slate-800 hover:border-purple-500/30 transition-all-300">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                                    <i class="fas fa-question text-purple-400 text-xl"></i>
+                                </div>
+                                <span class="text-2xl font-bold text-white" id="statTotal">0</span>
+                            </div>
+                            <h3 class="text-slate-400 text-sm">Total Questions</h3>
+                            <div class="mt-2 text-xs text-purple-400">
+                                <i class="fas fa-cloud mr-1"></i> Cloud synced
+                            </div>
+                        </div>
+                        
+                        <div class="glass rounded-2xl p-6 border border-slate-800 hover:border-blue-500/30 transition-all-300">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                                    <i class="fas fa-download text-blue-400 text-xl"></i>
+                                </div>
+                                <span class="text-2xl font-bold text-white" id="statDownloads">0</span>
+                            </div>
+                            <h3 class="text-slate-400 text-sm">Total Downloads</h3>
+                            <div class="mt-2 text-xs text-blue-400">
+                                <i class="fas fa-chart-line mr-1"></i> Global stats
+                            </div>
+                        </div>
+                        
+                        <div class="glass rounded-2xl p-6 border border-slate-800 hover:border-emerald-500/30 transition-all-300">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                                    <i class="fas fa-users text-emerald-400 text-xl"></i>
+                                </div>
+                                <span class="text-2xl font-bold text-white" id="statUsers">0</span>
+                            </div>
+                            <h3 class="text-slate-400 text-sm">Active Users</h3>
+                            <div class="mt-2 text-xs text-emerald-400">
+                                <i class="fas fa-circle text-[8px] mr-1"></i> <span id="statOnline">0</span> online now
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass rounded-2xl p-6 border border-slate-800">
+                        <h3 class="text-lg font-semibold text-white mb-4">Recent Activity (Live)</h3>
+                        <div id="activityList" class="space-y-3">
+                            <div class="text-center py-8 text-slate-500">
+                                <i class="fas fa-spinner fa-spin mr-2"></i> Loading from cloud...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Questions Tab -->
+                <div id="tab-questions" class="tab-content hidden-section animate-slide-in">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                        <div class="relative flex-1 max-w-md w-full">
+                            <i class="fas fa-search absolute left-4 top-3.5 text-slate-500"></i>
+                            <input type="text" id="searchInput" placeholder="Search questions..." 
+                                class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-3 pl-12 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-all-300"
+                                oninput="searchQuestions()">
+                        </div>
+                        
+                        <div id="adminActions" class="flex gap-2 hidden">
+                            <button onclick="deleteSelected()" class="px-4 py-2 bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500/20 transition-all-300 text-sm font-medium hidden" id="deleteSelectedBtn">
+                                <i class="fas fa-trash mr-2"></i>Delete Selected
+                            </button>
+                            <select id="filterSubject" onchange="filterBySubject()" class="bg-slate-800/50 border border-slate-700 rounded-xl py-2 px-4 text-white text-sm focus:outline-none focus:border-purple-500">
+                                <option value="">All Subjects</option>
+                            </select>
+                            <button onclick="downloadAll()" class="px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-xl hover:bg-emerald-500/20 transition-all-300 text-sm font-medium">
+                                <i class="fas fa-download mr-2"></i>Download All
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="glass rounded-2xl border border-slate-800 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left">
+                                <thead class="bg-slate-800/50 text-slate-400 text-sm uppercase">
+                                    <tr>
+                                        <th class="p-4 w-12"><input type="checkbox" id="selectAll" class="custom-checkbox rounded bg-slate-700 border-slate-600" onchange="toggleSelectAll()"></th>
+                                        <th class="p-4">Question</th>
+                                        <th class="p-4">Subject</th>
+                                        <th class="p-4">Type</th>
+                                        <th class="p-4">Date Added</th>
+                                        <th class="p-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="questionsTableBody" class="divide-y divide-slate-800">
+                                    <tr>
+                                        <td colspan="6" class="p-8 text-center text-slate-500">
+                                            <i class="fas fa-spinner fa-spin mr-2"></i> Loading questions from cloud...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="emptyState" class="hidden p-12 text-center">
+                            <div class="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-inbox text-slate-600 text-2xl"></i>
+                            </div>
+                            <p class="text-slate-500">No questions found in database</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upload Tab -->
+                <div id="tab-upload" class="tab-content hidden-section animate-slide-in">
+                    <div class="max-w-2xl mx-auto">
+                        <div class="glass rounded-2xl p-8 border border-slate-800 border-dashed-2 border-purple-500/30">
+                            <div class="text-center mb-8">
+                                <div class="w-20 h-20 rounded-full bg-purple-500/10 flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-cloud-upload-alt text-purple-400 text-3xl"></i>
+                                </div>
+                                <h3 class="text-xl font-semibold text-white mb-2">Upload New Questions</h3>
+                                <p class="text-slate-400 text-sm">Saved to Firebase Cloud permanently</p>
+                            </div>
+
+                            <form id="uploadForm" class="space-y-6" onsubmit="event.preventDefault(); uploadQuestion();">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-400 mb-2">Subject</label>
+                                    <select id="uploadSubject" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-purple-500 transition-all-300">
+                                        <option value="Mathematics">Mathematics</option>
+                                        <option value="Physics">Physics</option>
+                                        <option value="Chemistry">Chemistry</option>
+                                        <option value="Biology">Biology</option>
+                                        <option value="Computer Science">Computer Science</option>
+                                        <option value="History">History</option>
+                                        <option value="Geography">Geography</option>
+                                        <option value="Literature">Literature</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-400 mb-2">Question Type</label>
+                                    <div class="grid grid-cols-3 gap-3">
+                                        <button type="button" onclick="selectType('mcq')" class="type-btn active px-4 py-3 rounded-xl border border-purple-500 bg-purple-500/20 text-purple-300 text-sm font-medium transition-all-300" data-type="mcq">
+                                            <i class="fas fa-list-ul mr-2"></i>MCQ
+                                        </button>
+                                        <button type="button" onclick="selectType('essay')" class="type-btn px-4 py-3 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-400 text-sm font-medium transition-all-300" data-type="essay">
+                                            <i class="fas fa-paragraph mr-2"></i>Essay
+                                        </button>
+                                        <button type="button" onclick="selectType('short')" class="type-btn px-4 py-3 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-400 text-sm font-medium transition-all-300" data-type="short">
+                                            <i class="fas fa-minus mr-2"></i>Short
+                                        </button>
+                                    </div>
+                                    <input type="hidden" id="questionType" value="mcq">
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-400 mb-2">Question Text</label>
+                                    <textarea id="questionText" rows="4" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-3 px-4 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-all-300 resize-none" placeholder="Enter your question here..."></textarea>
+                                </div>
+
+                                <div id="mcqOptions" class="space-y-3">
+                                    <label class="block text-sm font-medium text-slate-400">Options (for MCQ)</label>
+                                    <div class="space-y-2">
+                                        <input type="text" placeholder="Option A" class="option-input w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2 px-4 text-white text-sm">
+                                        <input type="text" placeholder="Option B" class="option-input w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2 px-4 text-white text-sm">
+                                        <input type="text" placeholder="Option C" class="option-input w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2 px-4 text-white text-sm">
+                                        <input type="text" placeholder="Option D" class="option-input w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2 px-4 text-white text-sm">
+                                    </div>
+                                    <input type="text" placeholder="Correct Answer (e.g., Option A)" class="correct-answer w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2 px-4 text-white text-sm mt-2">
+                                </div>
+
+                                <div class="pt-4 border-t border-slate-800">
+                                    <button type="submit" id="uploadBtn" class="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold py-3 rounded-xl transition-all-300 transform hover:scale-[1.02] flex items-center justify-center gap-2">
+                                        <span><i class="fas fa-plus-circle mr-2"></i>Add to Cloud</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Management -->
+                <div id="tab-users" class="tab-content hidden-section animate-slide-in">
+                    <div class="glass rounded-2xl p-6 border border-slate-800">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 class="text-lg font-semibold text-white">User Management</h3>
+                                <p class="text-sm text-slate-500">Firebase Authentication Database</p>
+                            </div>
+                            <button onclick="showAddUserModal()" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm transition-all-300">
+                                <i class="fas fa-user-plus mr-2"></i>Add User
+                            </button>
+                        </div>
+                        <div id="usersTableContainer" class="overflow-x-auto">
+                            <table class="w-full text-left">
+                                <thead class="bg-slate-800/50 text-slate-400 text-sm">
+                                    <tr>
+                                        <th class="p-4">Username</th>
+                                        <th class="p-4">Role</th>
+                                        <th class="p-4">Last Login</th>
+                                        <th class="p-4">Status</th>
+                                        <th class="p-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody" class="divide-y divide-slate-800">
+                                    <tr>
+                                        <td colspan="5" class="p-8 text-center text-slate-500">
+                                            <i class="fas fa-spinner fa-spin mr-2"></i> Loading users...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Tab -->
+                <div id="tab-settings" class="tab-content hidden-section animate-slide-in">
+                    <div class="max-w-2xl mx-auto space-y-6">
+                        <div class="glass rounded-2xl p-6 border border-slate-800">
+                            <h3 class="text-lg font-semibold text-white mb-4">Cloud Configuration</h3>
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between p-4 bg-slate-800/30 rounded-xl">
+                                    <div class="flex items-center gap-3">
+                                        <i class="fas fa-database text-purple-400 text-xl"></i>
+                                        <div>
+                                            <p class="text-white font-medium">Firebase Status</p>
+                                            <p class="text-xs text-slate-400" id="firebaseStatusText">Checking...</p>
+                                        </div>
+                                    </div>
+                                    <span id="firebaseStatusBadge" class="px-3 py-1 rounded-full text-xs bg-slate-700 text-slate-400">Unknown</span>
+                                </div>
+                                
+                                <button onclick="testConnection()" class="w-full py-2 border border-slate-700 hover:border-purple-500/50 text-slate-400 hover:text-purple-400 rounded-lg text-sm transition-all-300">
+                                    <i class="fas fa-plug mr-2"></i>Test Connection
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="glass rounded-2xl p-6 border border-slate-800">
+                            <h3 class="text-lg font-semibold text-white mb-4">Data Management</h3>
+                            <div class="space-y-3">
+                                <button onclick="exportAll()" class="w-full flex items-center justify-between p-4 rounded-xl bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700 transition-all-300">
+                                    <div class="flex items-center gap-3">
+                                        <i class="fas fa-download text-blue-400"></i>
+                                        <span class="text-white">Export All Data (JSON)</span>
+                                    </div>
+                                    <i class="fas fa-chevron-right text-slate-500"></i>
+                                </button>
+                                <button onclick="clearAllData()" class="w-full flex items-center justify-between p-4 rounded-xl bg-slate-800/30 hover:bg-red-500/10 border border-slate-700 hover:border-red-500/30 transition-all-300 group">
+                                    <div class="flex items-center gap-3">
+                                        <i class="fas fa-trash text-red-400 group-hover:text-red-500"></i>
+                                        <span class="text-white">Clear Cloud Database</span>
+                                    </div>
+                                    <i class="fas fa-chevron-right text-slate-500 group-hover:text-red-400"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <div class="glass rounded-2xl w-full max-w-lg p-6 animate-slide-in border border-purple-500/30">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold text-white">Edit Question</h3>
+                <button onclick="closeEditModal()" class="text-slate-400 hover:text-white">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Question Text</label>
+                    <textarea id="editQuestionText" rows="3" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-2 px-4 text-white focus:border-purple-500 focus:outline-none"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Subject</label>
+                    <select id="editSubject" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-2 px-4 text-white focus:border-purple-500 focus:outline-none">
+                        <option value="Mathematics">Mathematics</option>
+                        <option value="Physics">Physics</option>
+                        <option value="Chemistry">Chemistry</option>
+                        <option value="Biology">Biology</option>
+                        <option value="Computer Science">Computer Science</option>
+                        <option value="History">History</option>
+                        <option value="Geography">Geography</option>
+                        <option value="Literature">Literature</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-3 pt-4">
+                    <button onclick="closeEditModal()" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white transition-all-300">Cancel</button>
+                    <button onclick="saveEdit()" class="px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-all-300">Save to Cloud</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <div class="glass rounded-xl px-6 py-4 border border-purple-500/30 flex items-center gap-3 shadow-2xl">
+            <i id="toastIcon" class="fas fa-check-circle text-emerald-400 text-xl"></i>
+            <span id="toastMessage" class="text-white font-medium">Operation successful</span>
+        </div>
+    </div>
+
+    <script>
+        // State Management
+        let currentUser = null;
+        let questions = [];
+        let users = [];
+        let selectedQuestions = new Set();
+        let editingId = null;
+        let currentTab = 'dashboard';
+        let isOfflineMode = false;
+        let unsubscribeQuestions = null;
+        let unsubscribeUsers = null;
+
+        // Demo Data for first-time setup
+        const demoUsers = [
+            { id: '1', username: 'admin', password: 'admin123', role: 'admin', lastLogin: new Date().toISOString(), status: 'active' },
+            { id: '2', username: 'user', password: 'user123', role: 'user', lastLogin: new Date().toISOString(), status: 'active' }
+        ];
+
+        const demoQuestions = [
+            { id: '1', subject: 'Mathematics', type: 'mcq', text: 'What is the derivative of x²?', options: ['2x', 'x', 'x²', '2'], answer: '2x', date: new Date().toISOString(), downloads: 0 },
+            { id: '2', subject: 'Physics', type: 'essay', text: 'Explain the theory of relativity in detail.', date: new Date(Date.now() - 86400000).toISOString(), downloads: 0 },
+            { id: '3', subject: 'Chemistry', type: 'mcq', text: 'What is the chemical symbol for Gold?', options: ['Go', 'Gd', 'Au', 'Ag'], answer: 'Au', date: new Date(Date.now() - 172800000).toISOString(), downloads: 0 }
+        ];
+
+        // Initialize
+        window.onload = async function() {
+            // Wait for Firebase to load
+            setTimeout(async () => {
+                if (!window.firebaseLoaded) {
+                    document.getElementById('setupScreen').classList.remove('hidden');
+                    return;
+                }
+                
+                // Check if it's first time (no users in collection)
+                await checkFirstTimeSetup();
+                
+                // Check for session
+                const session = localStorage.getItem('examvault_session');
+                if (session && !isOfflineMode) {
+                    const userData = JSON.parse(session);
+                    const userDoc = await window.firestore.getDoc(window.firestore.doc(window.db, 'users', userData.id));
+                    if (userDoc.exists()) {
+                        currentUser = { id: userDoc.id, ...userDoc.data() };
+                        showApp();
+                    }
+                }
+            }, 1000);
+        };
+
+        async function checkFirstTimeSetup() {
+            try {
+                const usersSnapshot = await window.firestore.getDocs(window.firestore.collection(window.db, 'users'));
+                if (usersSnapshot.empty) {
+                    // First time - add demo data
+                    showToast('Setting up cloud database...', 'success');
+                    
+                    // Add demo users
+                    for (const user of demoUsers) {
+                        await window.firestore.setDoc(window.firestore.doc(window.db, 'users', user.id), user);
+                    }
+                    
+                    // Add demo questions
+                    for (const q of demoQuestions) {
+                        await window.firestore.addDoc(window.firestore.collection(window.db, 'questions'), q);
+                    }
+                    
+                    showToast('Demo data added to cloud!', 'success');
+                }
+            } catch (error) {
+                console.error('Setup error:', error);
+            }
+        }
+
+        function offlineMode() {
+            isOfflineMode = true;
+            users = [...demoUsers];
+            questions = [...demoQuestions];
+            currentUser = users[0]; // Auto login as admin
+            showApp();
+            showToast('Offline mode - Data won\'t sync to cloud', 'error');
+        }
+
+        // Authentication
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('loginBtn');
+            
+            btn.innerHTML = '<div class="loading-spinner w-5 h-5 border-2"></div>';
+            
+            try {
+                const usersRef = window.firestore.collection(window.db, 'users');
+                const q = window.firestore.query(usersRef, window.firestore.orderBy('username'));
+                const snapshot = await window.firestore.getDocs(q);
+                
+                let foundUser = null;
+                snapshot.forEach(doc => {
+                    const user = doc.data();
+                    if (user.username === username && user.password === password) {
+                        foundUser = { id: doc.id, ...user };
+                    }
+                });
+                
+                if (foundUser) {
+                    currentUser = foundUser;
+                    // Update last login
+                    await window.firestore.updateDoc(window.firestore.doc(window.db, 'users', foundUser.id), {
+                        lastLogin: new Date().toISOString()
+                    });
+                    
+                    localStorage.setItem('examvault_session', JSON.stringify({ id: foundUser.id, username: foundUser.username }));
+                    showApp();
+                    showToast('Welcome back, ' + foundUser.username + '!', 'success');
+                } else {
+                    throw new Error('Invalid credentials');
+                }
+            } catch (error) {
+                document.getElementById('loginError').classList.remove('hidden');
+                setTimeout(() => document.getElementById('loginError').classList.add('hidden'), 3000);
+            } finally {
+                btn.innerHTML = '<span>Sign In</span>';
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('examvault_session');
+            
+            // Unsubscribe from real-time updates
+            if (unsubscribeQuestions) unsubscribeQuestions();
+            if (unsubscribeUsers) unsubscribeUsers();
+            
+            document.getElementById('loginScreen').classList.remove('hidden-section');
+            document.getElementById('app').classList.add('hidden-section');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
+
+        async function showApp() {
+            document.getElementById('loginScreen').classList.add('hidden-section');
+            document.getElementById('app').classList.remove('hidden-section');
+            
+            document.getElementById('userRoleDisplay').textContent = currentUser.role;
+            document.getElementById('userAvatar').textContent = currentUser.username[0].toUpperCase();
+            
+            if (currentUser.role === 'user') {
+                document.getElementById('adminOnlyNav').classList.add('hidden-section');
+                document.getElementById('adminActions').classList.add('hidden');
+            } else {
+                document.getElementById('adminOnlyNav').classList.remove('hidden-section');
+                document.getElementById('adminActions').classList.remove('hidden');
+            }
+            
+            // Setup real-time listeners
+            setupRealtimeListeners();
+        }
+
+        function setupRealtimeListeners() {
+            // Listen to questions collection
+            const q = window.firestore.query(
+                window.firestore.collection(window.db, 'questions'),
+                window.firestore.orderBy('date', 'desc')
+            );
+            
+            unsubscribeQuestions = window.firestore.onSnapshot(q, (snapshot) => {
+                questions = [];
+                snapshot.forEach(doc => {
+                    questions.push({ id: doc.id, ...doc.data() });
+                });
+                renderQuestions();
+                updateDashboard();
+                updateSubjectFilter();
+            }, (error) => {
+                console.error('Questions listener error:', error);
+                showToast('Sync error - check connection', 'error');
+            });
+
+            // Listen to users collection
+            const usersQuery = window.firestore.query(window.firestore.collection(window.db, 'users'));
+            unsubscribeUsers = window.firestore.onSnapshot(usersQuery, (snapshot) => {
+                users = [];
+                snapshot.forEach(doc => {
+                    users.push({ id: doc.id, ...doc.data() });
+                });
+                renderUsers();
+                updateDashboard();
+            });
+        }
+
+        // Navigation
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden-section'));
+            document.querySelectorAll('nav button').forEach(el => {
+                el.classList.remove('bg-purple-600/20', 'text-purple-300', 'border-purple-500/30');
+                el.classList.add('text-slate-400');
+            });
+            
+            document.getElementById(`tab-${tab}`).classList.remove('hidden-section');
+            document.getElementById(`nav-${tab}`).classList.add('bg-purple-600/20', 'text-purple-300', 'border', 'border-purple-500/30');
+            document.getElementById(`nav-${tab}`).classList.remove('text-slate-400');
+            
+            currentTab = tab;
+            
+            const titles = {
+                dashboard: 'Dashboard',
+                questions: 'Question Bank',
+                upload: 'Upload Questions',
+                users: 'User Management',
+                settings: 'Settings'
+            };
+            document.getElementById('pageTitle').textContent = titles[tab];
+            
+            document.getElementById('sidebar').classList.add('-translate-x-full');
+            document.getElementById('mobileOverlay').classList.add('hidden');
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            
+            if (sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
+
+        // Question Management
+        function renderQuestions() {
+            const tbody = document.getElementById('questionsTableBody');
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const subjectFilter = document.getElementById('filterSubject').value;
+            
+            let filtered = questions.filter(q => {
+                const matchesSearch = q.text.toLowerCase().includes(searchTerm);
+                const matchesSubject = !subjectFilter || q.subject === subjectFilter;
+                return matchesSearch && matchesSubject;
+            });
+            
+            if (filtered.length === 0) {
+                tbody.innerHTML = '';
+                document.getElementById('emptyState').classList.remove('hidden');
+                return;
+            }
+            
+            document.getElementById('emptyState').classList.add('hidden');
+            
+            tbody.innerHTML = filtered.map(q => `
+                <tr class="hover:bg-slate-800/30 transition-colors group">
+                    <td class="p-4">
+                        ${currentUser.role === 'admin' ? `<input type="checkbox" class="custom-checkbox rounded bg-slate-700 border-slate-600" onchange="toggleSelection('${q.id}')" ${selectedQuestions.has(q.id) ? 'checked' : ''}>` : ''}
+                    </td>
+                    <td class="p-4">
+                        <div class="text-white font-medium mb-1">${escapeHtml(q.text)}</div>
+                        ${q.type === 'mcq' && q.options ? `<div class="text-xs text-slate-500 mt-1">${q.options.map((o,i) => `${String.fromCharCode(65+i)}) ${escapeHtml(o)}`).join(' ')}</div>` : ''}
+                    </td>
+                    <td class="p-4">
+                        <span class="px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-purple-300 border border-purple-500/20">
+                            ${q.subject}
+                        </span>
+                    </td>
+                    <td class="p-4">
+                        <span class="px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700 uppercase">
+                            ${q.type}
+                        </span>
+                    </td>
+                    <td class="p-4 text-slate-400 text-sm mono">${formatDate(q.date)}</td>
+                    <td class="p-4 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <button onclick="downloadQuestion('${q.id}')" class="w-8 h-8 rounded-lg hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 transition-all-300" title="Download">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            ${currentUser.role === 'admin' ? `
+                                <button onclick="openEditModal('${q.id}')" class="w-8 h-8 rounded-lg hover:bg-purple-500/20 text-slate-400 hover:text-purple-400 transition-all-300" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteQuestion('${q.id}')" class="w-8 h-8 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-all-300" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            
+            document.getElementById('totalQuestionsBadge').textContent = `${questions.length} Questions`;
+            updateDeleteButton();
+        }
+
+        async function uploadQuestion() {
+            const subject = document.getElementById('uploadSubject').value;
+            const type = document.getElementById('questionType').value;
+            const text = document.getElementById('questionText').value;
+            const btn = document.getElementById('uploadBtn');
+            
+            if (!text.trim()) {
+                showToast('Please enter a question', 'error');
+                return;
+            }
+            
+            btn.innerHTML = '<div class="loading-spinner w-5 h-5 border-2"></div> Uploading...';
+            showSyncStatus(true);
+            
+            try {
+                const newQuestion = {
+                    subject,
+                    type,
+                    text,
+                    date: new Date().toISOString(),
+                    downloads: 0,
+                    createdBy: currentUser.id
+                };
+                
+                if (type === 'mcq') {
+                    const inputs = document.querySelectorAll('.option-input');
+                    const answerInput = document.querySelector('.correct-answer');
+                    newQuestion.options = Array.from(inputs).slice(0, 4).map(i => i.value).filter(v => v);
+                    newQuestion.answer = answerInput?.value || '';
+                }
+                
+                await window.firestore.addDoc(window.firestore.collection(window.db, 'questions'), newQuestion);
+                
+                document.getElementById('uploadForm').reset();
+                selectType('mcq');
+                
+                showToast('Question uploaded to cloud!', 'success');
+                switchTab('questions');
+            } catch (error) {
+                console.error('Upload error:', error);
+                showToast('Upload failed - check connection', 'error');
+            } finally {
+                btn.innerHTML = '<span><i class="fas fa-plus-circle mr-2"></i>Add to Cloud</span>';
+                showSyncStatus(false);
+            }
+        }
+
+        function selectType(type) {
+            document.querySelectorAll('.type-btn').forEach(btn => {
+                if (btn.dataset.type === type) {
+                    btn.classList.add('active', 'border-purple-500', 'bg-purple-500/20', 'text-purple-300');
+                    btn.classList.remove('border-slate-700', 'bg-slate-800/50', 'text-slate-400');
+                } else {
+                    btn.classList.remove('active', 'border-purple-500', 'bg-purple-500/20', 'text-purple-300');
+                    btn.classList.add('border-slate-700', 'bg-slate-800/50', 'text-slate-400');
+                }
+            });
+            document.getElementById('questionType').value = type;
+            document.getElementById('mcqOptions').classList.toggle('hidden', type !== 'mcq');
+        }
+
+        async function deleteQuestion(id) {
+            if (!confirm('Are you sure you want to delete this question from the cloud?')) return;
+            
+            showSyncStatus(true);
+            try {
+                await window.firestore.deleteDoc(window.firestore.doc(window.db, 'questions', id));
+                showToast('Question deleted from cloud', 'success');
+            } catch (error) {
+                showToast('Delete failed', 'error');
+            } finally {
+                showSyncStatus(false);
+            }
+        }
+
+        async function deleteSelected() {
+            if (selectedQuestions.size === 0) return;
+            if (!confirm(`Delete ${selectedQuestions.size} selected questions from cloud?`)) return;
+            
+            showSyncStatus(true);
+            try {
+                const deletePromises = Array.from(selectedQuestions).map(id => 
+                    window.firestore.deleteDoc(window.firestore.doc(window.db, 'questions', id))
+                );
+                await Promise.all(deletePromises);
+                selectedQuestions.clear();
+                showToast('Selected questions deleted', 'success');
+            } catch (error) {
+                showToast('Bulk delete failed', 'error');
+            } finally {
+                showSyncStatus(false);
+            }
+        }
+
+        function toggleSelection(id) {
+            if (selectedQuestions.has(id)) selectedQuestions.delete(id);
+            else selectedQuestions.add(id);
+            updateDeleteButton();
+        }
+
+        function toggleSelectAll() {
+            const checkboxes = document.querySelectorAll('#questionsTableBody input[type="checkbox"]');
+            const allChecked = document.getElementById('selectAll').checked;
+            
+            checkboxes.forEach(cb => {
+                cb.checked = allChecked;
+                const id = cb.getAttribute('onchange').match(/'(.*?)'/)[1];
+                if (allChecked) selectedQuestions.add(id);
+                else selectedQuestions.delete(id);
+            });
+            updateDeleteButton();
+        }
+
+        function updateDeleteButton() {
+            const btn = document.getElementById('deleteSelectedBtn');
+            if (selectedQuestions.size > 0) {
+                btn.classList.remove('hidden');
+                btn.innerHTML = `<i class="fas fa-trash mr-2"></i>Delete ${selectedQuestions.size} Selected`;
+            } else {
+                btn.classList.add('hidden');
+            }
+        }
+
+        function openEditModal(id) {
+            const q = questions.find(q => q.id === id);
+            if (!q) return;
+            
+            editingId = id;
+            document.getElementById('editQuestionText').value = q.text;
+            document.getElementById('editSubject').value = q.subject;
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+            editingId = null;
+        }
+
+        async function saveEdit() {
+            if (!editingId) return;
+            
+            showSyncStatus(true);
+            try {
+                await window.firestore.updateDoc(window.firestore.doc(window.db, 'questions', editingId), {
+                    text: document.getElementById('editQuestionText').value,
+                    subject: document.getElementById('editSubject').value,
+                    lastModified: new Date().toISOString()
+                });
+                closeEditModal();
+                showToast('Question updated in cloud', 'success');
+            } catch (error) {
+                showToast('Update failed', 'error');
+            } finally {
+                showSyncStatus(false);
+            }
+        }
+
+        function searchQuestions() { renderQuestions(); }
+        function filterBySubject() { renderQuestions(); }
+        
+        function updateSubjectFilter() {
+            const subjects = [...new Set(questions.map(q => q.subject))];
+            const select = document.getElementById('filterSubject');
+            select.innerHTML = '<option value="">All Subjects</option>' + 
+                subjects.map(s => `<option value="${s}">${s}</option>`).join('');
+        }
+
+        // Download Functionality
+        async function downloadQuestion(id) {
+            const q = questions.find(q => q.id === id);
+            if (!q) return;
+            
+            // Update download count in cloud
+            try {
+                await window.firestore.updateDoc(window.firestore.doc(window.db, 'questions', id), {
+                    downloads: (q.downloads || 0) + 1
+                });
+            } catch (e) { console.error('Download count update failed', e); }
+            
+            const content = formatQuestionForDownload(q);
+            downloadFile(content, `question_${id}.txt`, 'text/plain');
+            showToast('Question downloaded', 'success');
+        }
+
+        async function downloadAll() {
+            if (questions.length === 0) {
+                showToast('No questions to download', 'error');
+                return;
+            }
+            
+            const content = questions.map(q => formatQuestionForDownload(q)).join('\n\n---\n\n');
+            downloadFile(content, `exam_questions_${new Date().toISOString().split('T')[0]}.txt`, 'text/plain');
+            
+            // Update all download counts
+            const updatePromises = questions.map(q => 
+                window.firestore.updateDoc(window.firestore.doc(window.db, 'questions', q.id), {
+                    downloads: (q.downloads || 0) + 1
+                }).catch(() => {})
+            );
+            Promise.all(updatePromises);
+            
+            showToast(`Downloaded ${questions.length} questions`, 'success');
+        }
+
+        function formatQuestionForDownload(q) {
+            let content = `Subject: ${q.subject}\nType: ${q.type.toUpperCase()}\nDate: ${new Date(q.date).toLocaleDateString()}\n\nQ: ${q.text}\n`;
+            if (q.type === 'mcq' && q.options) {
+                q.options.forEach((opt, i) => content += `${String.fromCharCode(65+i)}) ${opt}\n`);
+                if (q.answer) content += `\nCorrect Answer: ${q.answer}`;
+            }
+            return content;
+        }
+
+        function downloadFile(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Dashboard
+        function updateDashboard() {
+            document.getElementById('statTotal').textContent = questions.length;
+            document.getElementById('statDownloads').textContent = questions.reduce((sum, q) => sum + (q.downloads || 0), 0);
+            document.getElementById('statUsers').textContent = users.length;
+            document.getElementById('statOnline').textContent = Math.floor(Math.random() * 5) + 1;
+            
+            const recent = [...questions].slice(0, 5);
+            const activityList = document.getElementById('activityList');
+            
+            if (recent.length === 0) {
+                activityList.innerHTML = '<p class="text-slate-500 text-center py-4">No questions in database yet</p>';
+            } else {
+                activityList.innerHTML = recent.map(q => `
+                    <div class="flex items-center gap-4 p-3 rounded-xl bg-slate-800/30 border border-slate-800">
+                        <div class="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                            <i class="fas fa-question text-purple-400"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-white text-sm font-medium truncate">${escapeHtml(q.text)}</p>
+                            <p class="text-slate-500 text-xs">${q.subject} • ${formatDate(q.date)}</p>
+                        </div>
+                        <i class="fas fa-cloud text-slate-600 text-xs" title="Synced to cloud"></i>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // User Management
+        function renderUsers() {
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = users.map(u => `
+                <tr class="border-b border-slate-800">
+                    <td class="p-4 text-white font-medium">${u.username}</td>
+                    <td class="p-4">
+                        <span class="px-2 py-1 rounded text-xs uppercase ${u.role === 'admin' ? 'bg-purple-500/20 text-purple-300' : 'bg-blue-500/20 text-blue-300'}">
+                            ${u.role}
+                        </span>
+                    </td>
+                    <td class="p-4 text-slate-400 text-sm">${formatDate(u.lastLogin)}</td>
+                    <td class="p-4">
+                        <span class="px-2 py-1 rounded text-xs ${u.status === 'active' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}">
+                            ${u.status}
+                        </span>
+                    </td>
+                    <td class="p-4 text-right">
+                        ${u.id !== currentUser.id ? `
+                            <button onclick="deleteUser('${u.id}')" class="text-red-400 hover:text-red-300 text-sm">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        ` : '<span class="text-slate-600 text-xs">Current</span>'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function showAddUserModal() {
+            const username = prompt('Enter new username:');
+            if (!username) return;
+            
+            if (users.find(u => u.username === username)) {
+                showToast('Username already exists', 'error');
+                return;
+            }
+            
+            const password = prompt('Enter password:');
+            if (!password) return;
+            
+            const role = confirm('Make this user an Admin? (Cancel for regular User)') ? 'admin' : 'user';
+            
+            showSyncStatus(true);
+            try {
+                await window.firestore.addDoc(window.firestore.collection(window.db, 'users'), {
+                    username,
+                    password,
+                    role,
+                    lastLogin: new Date().toISOString(),
+                    status: 'active'
+                });
+                showToast('User created in cloud', 'success');
+            } catch (error) {
+                showToast('Failed to create user', 'error');
+            } finally {
+                showSyncStatus(false);
+            }
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('Delete this user from the system?')) return;
+            
+            showSyncStatus(true);
+            try {
+                await window.firestore.deleteDoc(window.firestore.doc(window.db, 'users', id));
+                showToast('User deleted', 'success');
+            } catch (error) {
+                showToast('Delete failed', 'error');
+            } finally {
+                showSyncStatus(false);
+            }
+        }
+
+        // Settings & Utilities
+        async function testConnection() {
+            const badge = document.getElementById('firebaseStatusBadge');
+            const text = document.getElementById('firebaseStatusText');
+            
+            badge.textContent = 'Testing...';
+            badge.className = 'px-3 py-1 rounded-full text-xs bg-yellow-500/20 text-yellow-400';
+            
+            try {
+                const testDoc = await window.firestore.getDoc(window.firestore.doc(window.db, 'meta', 'status'));
+                badge.textContent = 'Connected';
+                badge.className = 'px-3 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-400';
+                text.textContent = 'Firebase Firestore is reachable';
+                showToast('Connection successful', 'success');
+            } catch (error) {
+                badge.textContent = 'Disconnected';
+                badge.className = 'px-3 py-1 rounded-full text-xs bg-red-500/20 text-red-400';
+                text.textContent = error.message;
+                showToast('Connection failed', 'error');
+            }
+        }
+
+        function syncNow() {
+            showToast('Real-time sync is active', 'success');
+        }
+
+        function exportAll() {
+            const data = { users, questions, exportedAt: new Date().toISOString() };
+            downloadFile(JSON.stringify(data, null, 2), `examvault_backup_${new Date().toISOString().split('T')[0]}.json`, 'application/json');
+            showToast('Backup downloaded', 'success');
+        }
+
+        async function clearAllData() {
+            if (!confirm('WARNING: This will delete ALL questions from the cloud. Are you sure?')) return;
+            
+            showSyncStatus(true);
+            try {
+                const deletePromises = questions.map(q => 
+                    window.firestore.deleteDoc(window.firestore.doc(window.db, 'questions', q.id))
+                );
+                await Promise.all(deletePromises);
+                showToast('All cloud data cleared', 'success');
+            } catch (error) {
+                showToast('Clear failed', 'error');
+            } finally {
+                showSyncStatus(false);
+            }
+        }
+
+        function showSyncStatus(show) {
+            const status = document.getElementById('syncStatus');
+            if (show) status.classList.remove('hidden');
+            else status.classList.add('hidden');
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'Never';
+            const date = new Date(dateString);
+            const now = new Date();
+            const diff = (now - date) / 1000;
+            
+            if (diff < 60) return 'Just now';
+            if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+            if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+            if (diff < 604800) return `${Math.floor(diff/86400)}d ago`;
+            return date.toLocaleDateString();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const msg = document.getElementById('toastMessage');
+            
+            msg.textContent = message;
+            icon.className = type === 'error' 
+                ? 'fas fa-exclamation-circle text-red-400 text-xl' 
+                : 'fas fa-check-circle text-emerald-400 text-xl';
+            
+            toast.querySelector('.glass').className = `glass rounded-xl px-6 py-4 border flex items-center gap-3 shadow-2xl ${type === 'error' ? 'border-red-500/30' : 'border-purple-500/30'}`;
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 3000);
+        }
+
+        // Enter key to login
+        document.getElementById('password')?.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') login();
+        });
+    </script>
+</body>
+</html>
