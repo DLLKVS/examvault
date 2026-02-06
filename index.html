@@ -585,12 +585,12 @@
                 document.getElementById('adminActions').classList.remove('hidden-section');
                 document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
                 document.getElementById('adminSettingsPanel').classList.remove('hidden-section');
-                document.getElementById('adminSettingsAvatar').textContent = currentUser.username.charAt(0).toUpperCase());
+                document.getElementById('adminSettingsAvatar').textContent = currentUser.username.charAt(0).toUpperCase();
                 document.getElementById('adminSettingsName').textContent = currentUser.username;
             } else {
                 // Show user elements
                 document.getElementById('userSettingsPanel').classList.remove('hidden-section');
-                document.getElementById('userSettingsAvatar').textContent = currentUser.username.charAt(0).toUpperCase());
+                document.getElementById('userSettingsAvatar').textContent = currentUser.username.charAt(0).toUpperCase();
                 document.getElementById('userSettingsName').textContent = currentUser.username;
             }
             
@@ -1078,4 +1078,5 @@
     </script>
 </body>
 </html>
+
 
