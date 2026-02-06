@@ -56,37 +56,36 @@
 
     <!-- Firebase SDK -->
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { 
-            getFirestore, collection, doc, setDoc, getDoc, getDocs, 
-            addDoc, deleteDoc, updateDoc, onSnapshot, query, orderBy 
-        } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-        import { 
-            getAuth, signInWithEmailAndPassword, signOut 
-        } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { 
+        getFirestore, collection, doc, setDoc, getDoc, getDocs, 
+        addDoc, deleteDoc, updateDoc, query, orderBy 
+    } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { 
+        getAuth, signInWithEmailAndPassword, signOut 
+    } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
-        const firebaseConfig = {
-           apiKey: "AIzaSyAmcHtGt81Q1Oyks-F1wIrnLwo_d45WXbU",
-  authDomain: "examvault-9a23b.firebaseapp.com",
-  projectId: "examvault-9a23b",
-  storageBucket: "examvault-9a23b.firebasestorage.app",
-  messagingSenderId: "250179055911",
-  appId: "1:250179055911:web:0521d2ff8331748e7ab902"
-};
+    // NEW CORRECT CONFIG
+    const firebaseConfig = {
+        apiKey: "AIzaSyAmcHtGt81Q1Oyks-F1wIrnLwo_d45WXbU",
+        authDomain: "examvault-9a23b.firebaseapp.com",
+        projectId: "examvault-9a23b",
+        storageBucket: "examvault-9a23b.firebasestorage.app",
+        messagingSenderId: "250179055911",
+        appId: "1:250179055911:web:0521d2ff8331748e7ab902"
+    };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        
-        window.db = db;
-        window.auth = auth;
-        window.firebaseLoaded = true;
-
-        window.firestore = { collection, doc, setDoc, getDoc, getDocs, addDoc, deleteDoc, updateDoc, onSnapshot, query, orderBy };
-        window.signInWithEmailAndPassword = signInWithEmailAndPassword;
-        window.signOut = signOut;
-        window.getAuth = getAuth;
-    </script>
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    
+    window.db = db;
+    window.auth = auth;
+    window.firebaseLoaded = true;
+    window.firestore = { collection, doc, setDoc, getDoc, getDocs, addDoc, deleteDoc, updateDoc, query, orderBy };
+    window.signInWithEmailAndPassword = signInWithEmailAndPassword;
+    window.signOut = signOut;
+</script>
 
     <!-- Login Screen -->
     <div id="loginScreen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950">
@@ -346,4 +345,5 @@
     </script>
 </body>
 </html>
+
 
