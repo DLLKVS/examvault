@@ -68,280 +68,172 @@
     </style>
 
     <!-- DEVTOOLS PROTECTION - Must be first -->
-    <script>
-        // Immediate execution - before anything else
-        (function() {
-            'use strict';
-            
-            let devtoolsOpen = false;
-            let warningCount = 0;
-            const maxWarnings = 3;
+  <!-- DEVTOOLS PROTECTION - Fixed to allow typing -->
+<script>
+    (function() {
+        'use strict';
+        
+        let devtoolsOpen = false;
+        let warningCount = 0;
+        const maxWarnings = 3;
 
-            // Disable console methods
-            const disabledConsole = function() {
-                const noop = function() {};
-                const methods = ['log', 'info', 'warn', 'error', 'debug', 'table', 'trace', 'group', 'groupEnd', 'clear', 'count', 'assert', 'profile', 'profileEnd'];
-                methods.forEach(function(method) {
-                    window.console[method] = noop;
-                });
-                
-                // Override console object entirely
-                Object.defineProperty(window, 'console', {
-                    get: function() {
-                        return {
-                            log: noop, info: noop, warn: noop, error: noop,
-                            debug: noop, table: noop, trace: noop,
-                            group: noop, groupEnd: noop, clear: noop
-                        };
-                    },
-                    set: function() {}
-                });
-            };
+        // Disable console methods
+        const disabledConsole = function() {
+            const noop = function() {};
+            const methods = ['log', 'info', 'warn', 'error', 'debug', 'table', 'trace', 'group', 'groupEnd', 'clear', 'count', 'assert', 'profile', 'profileEnd'];
+            methods.forEach(function(method) {
+                window.console[method] = noop;
+            });
+        };
 
-            // Detect DevTools via debugger timing
-            function detectDebugger() {
-                const threshold = 100;
-                const start = performance.now();
-                debugger;
-                const end = performance.now();
-                return (end - start) > threshold;
+        // Detect DevTools via debugger timing
+        function detectDebugger() {
+            const threshold = 100;
+            const start = performance.now();
+            debugger;
+            const end = performance.now();
+            return (end - start) > threshold;
+        }
+
+        // Detect via window size changes (undocked devtools)
+        function detectWindowSize() {
+            const widthThreshold = window.outerWidth - window.innerWidth > 160;
+            const heightThreshold = window.outerHeight - window.innerHeight > 160;
+            return widthThreshold || heightThreshold;
+        }
+
+        // Main detection loop
+        function checkDevTools() {
+            if (detectDebugger()) {
+                triggerProtection();
+                return;
             }
 
-            // Detect via window size changes (undocked devtools)
-            function detectWindowSize() {
-                const widthThreshold = window.outerWidth - window.innerWidth > 160;
-                const heightThreshold = window.outerHeight - window.innerHeight > 160;
-                return widthThreshold || heightThreshold;
+            if (detectWindowSize()) {
+                triggerProtection();
+                return;
             }
 
-            // Detect via DevTools-specific properties
-            function detectDevToolsProperties() {
-                const devtools = /./;
-                devtools.toString = function() {
-                    devtoolsOpen = true;
-                    return 'devtools';
-                };
-                console.log('%c', devtools);
+            // Performance timing check
+            const start = performance.now();
+            eval('debugger');
+            const end = performance.now();
+            if (end - start > 100) {
+                triggerProtection();
+                return;
             }
+        }
 
-            // Main detection loop
-            function checkDevTools() {
-                // Method 1: debugger timing
-                if (detectDebugger()) {
-                    triggerProtection();
-                    return;
-                }
+        // Protection trigger
+        function triggerProtection() {
+            if (devtoolsOpen) return;
+            devtoolsOpen = true;
+            warningCount++;
 
-                // Method 2: window size
-                if (detectWindowSize()) {
-                    triggerProtection();
-                    return;
-                }
-
-                // Method 3: performance timing
-                const start = performance.now();
-                eval('debugger');
-                const end = performance.now();
-                if (end - start > 100) {
-                    triggerProtection();
-                    return;
-                }
-
-                // Method 4: console clearing detection
-                const before = new Date().getTime();
-                (function() {}).constructor('debugger')();
-                const after = new Date().getTime();
-                if (after - before > 100) {
-                    triggerProtection();
-                    return;
-                }
-            }
-
-            // Protection trigger
-            function triggerProtection() {
-                if (devtoolsOpen) return;
-                devtoolsOpen = true;
-                warningCount++;
-
-                if (warningCount >= maxWarnings) {
-                    // Permanent block
-                    document.body.innerHTML = '';
-                    document.documentElement.innerHTML = `
-                        <html>
-                        <head><title>Access Denied</title></head>
-                        <body style="background:#000;color:#fff;font-family:Arial,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;">
-                            <div style="text-align:center;">
-                                <h1 style="color:#ff0000;font-size:48px;margin-bottom:20px;">⛔ ACCESS DENIED</h1>
-                                <p style="font-size:18px;">Developer tools detected. This incident has been logged.</p>
-                                <p style="color:#666;margin-top:20px;">Session terminated for security reasons.</p>
-                            </div>
-                        </body>
-                        </html>
-                    `;
-                    
-                    // Try to crash the browser
-                    setInterval(function() {
-                        while(true) {}
-                    }, 100);
-                    
-                    return;
-                }
-
-                // Show warning
-                const overlay = document.createElement('div');
-                overlay.id = 'securityOverlay';
-                overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.95);z-index:999999;display:flex;justify-content:center;align-items:center;flex-direction:column;';
-                overlay.innerHTML = `
-                    <div style="text-align:center;color:#fff;padding:40px;border:2px solid #ff0000;border-radius:10px;max-width:500px;">
-                        <i class="fas fa-exclamation-triangle" style="font-size:64px;color:#ff0000;margin-bottom:20px;"></i>
-                        <h1 style="color:#ff0000;font-size:32px;margin-bottom:15px;">WARNING</h1>
-                        <p style="font-size:18px;margin-bottom:10px;">Developer tools detected!</p>
-                        <p style="color:#aaa;margin-bottom:20px;">Warning ${warningCount} of ${maxWarnings}</p>
-                        <p style="color:#ff6666;font-size:14px;">Close DevTools immediately to continue.</p>
-                        <button onclick="this.parentElement.parentElement.remove();location.reload()" style="margin-top:20px;padding:10px 30px;background:#ff0000;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:16px;">I Understand</button>
+            if (warningCount >= maxWarnings) {
+                document.body.innerHTML = `
+                    <div style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;display:flex;justify-content:center;align-items:center;flex-direction:column;color:#fff;font-family:Arial,sans-serif;z-index:999999;">
+                        <h1 style="color:#ff0000;font-size:48px;">⛔ ACCESS DENIED</h1>
+                        <p>Developer tools detected.</p>
                     </div>
                 `;
-                document.body.appendChild(overlay);
-
-                // Disable all interactions
-                document.body.style.pointerEvents = 'none';
-                overlay.style.pointerEvents = 'auto';
-                
-                setTimeout(function() {
-                    devtoolsOpen = false;
-                }, 2000);
+                setInterval(function() { while(true) {} }, 100);
+                return;
             }
 
-            // Block keyboard shortcuts
-            function blockKeys(e) {
-                // F12
-                if (e.keyCode === 123) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    triggerProtection();
-                    return false;
-                }
-                
-                // Ctrl+Shift+I/J/C
-                if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    triggerProtection();
-                    return false;
-                }
-                
-                // Ctrl+U (view source)
-                if (e.ctrlKey && e.keyCode === 85) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return false;
-                }
-                
-                // Cmd+Option+I (Mac)
-                if (e.metaKey && e.altKey && e.keyCode === 73) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    triggerProtection();
-                    return false;
-                }
-                
-                // Cmd+Option+J (Mac)
-                if (e.metaKey && e.altKey && e.keyCode === 74) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    triggerProtection();
-                    return false;
-                }
-            }
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.95);z-index:999999;display:flex;justify-content:center;align-items:center;';
+            overlay.innerHTML = `
+                <div style="text-align:center;color:#fff;padding:40px;border:2px solid #ff0000;border-radius:10px;">
+                    <h1 style="color:#ff0000;">⚠️ WARNING ${warningCount}/${maxWarnings}</h1>
+                    <p>Developer tools detected!</p>
+                    <p style="color:#ff6666;">Close DevTools immediately</p>
+                    <button onclick="location.reload()" style="margin-top:20px;padding:10px 30px;background:#ff0000;color:#fff;border:none;border-radius:5px;cursor:pointer;">Continue</button>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            
+            setTimeout(function() { devtoolsOpen = false; }, 2000);
+        }
 
-            // Block right click context menu
-            function blockContextMenu(e) {
+        // ONLY block specific DevTools keys, allow all others
+        function blockKeys(e) {
+            // F12
+            if (e.keyCode === 123) {
                 e.preventDefault();
                 e.stopPropagation();
+                triggerProtection();
                 return false;
-            }
-
-            // Disable drag and drop of files
-            function blockDragDrop(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                return false;
-            }
-
-            // Set up all protections
-            function initProtection() {
-                // Disable console immediately
-                disabledConsole();
-                
-                // Keyboard blocking
-                document.addEventListener('keydown', blockKeys, true);
-                document.addEventListener('keyup', blockKeys, true);
-                document.addEventListener('keypress', blockKeys, true);
-                
-                // Context menu
-                document.addEventListener('contextmenu', blockContextMenu, true);
-                
-                // Drag and drop
-                document.addEventListener('dragover', blockDragDrop, true);
-                document.addEventListener('drop', blockDragDrop, true);
-                
-                // DevTools detection loop
-                setInterval(checkDevTools, 500);
-                
-                // Additional detection methods
-                window.addEventListener('resize', checkDevTools, true);
-                window.addEventListener('focus', checkDevTools, true);
-                
-                // Mutation observer to detect DOM inspection
-                const observer = new MutationObserver(function(mutations) {
-                    mutations.forEach(function(mutation) {
-                        if (mutation.type === 'childList') {
-                            checkDevTools();
-                        }
-                    });
-                });
-                
-                if (document.body) {
-                    observer.observe(document.body, { childList: true, subtree: true });
-                } else {
-                    setTimeout(function() {
-                        if (document.body) observer.observe(document.body, { childList: true, subtree: true });
-                    }, 100);
-                }
-
-                // Prevent viewing source via location
-                try {
-                    Object.defineProperty(document, 'referrer', { get: function() { return ''; } });
-                    Object.defineProperty(document, 'documentElement', {
-                        get: function() {
-                            checkDevTools();
-                            return document.querySelector('html');
-                        }
-                    });
-                } catch(e) {}
-
-                // Override Function.prototype.toString to detect debugging
-                const originalToString = Function.prototype.toString;
-                Function.prototype.toString = function() {
-                    checkDevTools();
-                    return originalToString.apply(this, arguments);
-                };
-            }
-
-            // Initialize as soon as possible
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', initProtection, true);
-            } else {
-                initProtection();
             }
             
-            // Also run immediately
+            // Ctrl+Shift+I/J/C/U
+            if (e.ctrlKey && e.shiftKey) {
+                // I = 73, J = 74, C = 67
+                if (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    triggerProtection();
+                    return false;
+                }
+            }
+            
+            // Ctrl+U (view source)
+            if (e.ctrlKey && e.keyCode === 85 && !e.shiftKey && !e.altKey) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+            
+            // Cmd+Option+I/J (Mac)
+            if (e.metaKey && e.altKey) {
+                if (e.keyCode === 73 || e.keyCode === 74) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    triggerProtection();
+                    return false;
+                }
+            }
+            
+            // ALLOW ALL OTHER KEYS (letters, numbers, etc.)
+            return true;
+        }
+
+        // Block right click
+        function blockContextMenu(e) {
+            e.preventDefault();
+            return false;
+        }
+
+        // Block drag and drop
+        function blockDragDrop(e) {
+            e.preventDefault();
+            return false;
+        }
+
+        // Initialize
+        function initProtection() {
+            disabledConsole();
+            
+            // Only attach to document, use capture but don't stop propagation for normal keys
+            document.addEventListener('keydown', blockKeys, true);
+            
+            document.addEventListener('contextmenu', blockContextMenu, true);
+            document.addEventListener('dragover', blockDragDrop, true);
+            document.addEventListener('drop', blockDragDrop, true);
+            
+            setInterval(checkDevTools, 500);
+            window.addEventListener('resize', checkDevTools, true);
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initProtection, true);
+        } else {
             initProtection();
-            
-        })();
-    </script>
+        }
+    })();
+</script>
 </head>
-<body class="bg-slate-950 text-slate-200 min-h-screen overflow-x-hidden" oncontextmenu="return false;" onkeydown="return false;">
+<body class="bg-slate-950 text-slate-200 min-h-screen overflow-x-hidden">
 
     <!-- Firebase SDK -->
     <script type="module">
@@ -1207,4 +1099,5 @@
     </script>
 </body>
 </html>
+
 
