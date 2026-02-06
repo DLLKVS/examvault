@@ -793,20 +793,16 @@
         }
 
         async function showApp() {
-            document.getElementById('loginScreen').classList.add('hidden-section');
-            document.getElementById('app').classList.remove('hidden-section');
-            
-            document.getElementById('userRoleDisplay').textContent = currentUser.role;
-            document.getElementById('userAvatar').textContent = currentUser.username[0].toUpperCase();
-            
-            if (currentUser.role === 'user') {
-                document.getElementById('adminOnlyNav').classList.add('hidden-section');
-                document.getElementById('adminActions').classList.add('hidden');
-            } else {
-                document.getElementById('adminOnlyNav').classList.remove('hidden-section');
-                document.getElementById('adminActions').classList.remove('hidden');
-            }
-            
+            if (currentUser.role === 'admin') {
+        document.getElementById('adminSettings').classList.remove('hidden');
+        document.getElementById('userSettings').classList.add('hidden');
+    } else {
+        document.getElementById('userSettings').classList.remove('hidden');
+        document.getElementById('adminSettings').classList.add('hidden');
+        document.getElementById('profileUsername').textContent = currentUser.username;
+        document.getElementById('profileAvatar').textContent = currentUser.username[0].toUpperCase();
+        document.getElementById('downloadCount').textContent = questions.length + ' questions available';
+    }
             // Setup real-time listeners
             setupRealtimeListeners();
         }
@@ -1369,3 +1365,4 @@
 </body>
 
 </html>
+
