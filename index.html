@@ -50,9 +50,298 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Anti-devtools overlay */
+        #securityOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            z-index: 999999;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
     </style>
+
+    <!-- DEVTOOLS PROTECTION - Must be first -->
+    <script>
+        // Immediate execution - before anything else
+        (function() {
+            'use strict';
+            
+            let devtoolsOpen = false;
+            let warningCount = 0;
+            const maxWarnings = 3;
+
+            // Disable console methods
+            const disabledConsole = function() {
+                const noop = function() {};
+                const methods = ['log', 'info', 'warn', 'error', 'debug', 'table', 'trace', 'group', 'groupEnd', 'clear', 'count', 'assert', 'profile', 'profileEnd'];
+                methods.forEach(function(method) {
+                    window.console[method] = noop;
+                });
+                
+                // Override console object entirely
+                Object.defineProperty(window, 'console', {
+                    get: function() {
+                        return {
+                            log: noop, info: noop, warn: noop, error: noop,
+                            debug: noop, table: noop, trace: noop,
+                            group: noop, groupEnd: noop, clear: noop
+                        };
+                    },
+                    set: function() {}
+                });
+            };
+
+            // Detect DevTools via debugger timing
+            function detectDebugger() {
+                const threshold = 100;
+                const start = performance.now();
+                debugger;
+                const end = performance.now();
+                return (end - start) > threshold;
+            }
+
+            // Detect via window size changes (undocked devtools)
+            function detectWindowSize() {
+                const widthThreshold = window.outerWidth - window.innerWidth > 160;
+                const heightThreshold = window.outerHeight - window.innerHeight > 160;
+                return widthThreshold || heightThreshold;
+            }
+
+            // Detect via DevTools-specific properties
+            function detectDevToolsProperties() {
+                const devtools = /./;
+                devtools.toString = function() {
+                    devtoolsOpen = true;
+                    return 'devtools';
+                };
+                console.log('%c', devtools);
+            }
+
+            // Main detection loop
+            function checkDevTools() {
+                // Method 1: debugger timing
+                if (detectDebugger()) {
+                    triggerProtection();
+                    return;
+                }
+
+                // Method 2: window size
+                if (detectWindowSize()) {
+                    triggerProtection();
+                    return;
+                }
+
+                // Method 3: performance timing
+                const start = performance.now();
+                eval('debugger');
+                const end = performance.now();
+                if (end - start > 100) {
+                    triggerProtection();
+                    return;
+                }
+
+                // Method 4: console clearing detection
+                const before = new Date().getTime();
+                (function() {}).constructor('debugger')();
+                const after = new Date().getTime();
+                if (after - before > 100) {
+                    triggerProtection();
+                    return;
+                }
+            }
+
+            // Protection trigger
+            function triggerProtection() {
+                if (devtoolsOpen) return;
+                devtoolsOpen = true;
+                warningCount++;
+
+                if (warningCount >= maxWarnings) {
+                    // Permanent block
+                    document.body.innerHTML = '';
+                    document.documentElement.innerHTML = `
+                        <html>
+                        <head><title>Access Denied</title></head>
+                        <body style="background:#000;color:#fff;font-family:Arial,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;">
+                            <div style="text-align:center;">
+                                <h1 style="color:#ff0000;font-size:48px;margin-bottom:20px;">⛔ ACCESS DENIED</h1>
+                                <p style="font-size:18px;">Developer tools detected. This incident has been logged.</p>
+                                <p style="color:#666;margin-top:20px;">Session terminated for security reasons.</p>
+                            </div>
+                        </body>
+                        </html>
+                    `;
+                    
+                    // Try to crash the browser
+                    setInterval(function() {
+                        while(true) {}
+                    }, 100);
+                    
+                    return;
+                }
+
+                // Show warning
+                const overlay = document.createElement('div');
+                overlay.id = 'securityOverlay';
+                overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.95);z-index:999999;display:flex;justify-content:center;align-items:center;flex-direction:column;';
+                overlay.innerHTML = `
+                    <div style="text-align:center;color:#fff;padding:40px;border:2px solid #ff0000;border-radius:10px;max-width:500px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size:64px;color:#ff0000;margin-bottom:20px;"></i>
+                        <h1 style="color:#ff0000;font-size:32px;margin-bottom:15px;">WARNING</h1>
+                        <p style="font-size:18px;margin-bottom:10px;">Developer tools detected!</p>
+                        <p style="color:#aaa;margin-bottom:20px;">Warning ${warningCount} of ${maxWarnings}</p>
+                        <p style="color:#ff6666;font-size:14px;">Close DevTools immediately to continue.</p>
+                        <button onclick="this.parentElement.parentElement.remove();location.reload()" style="margin-top:20px;padding:10px 30px;background:#ff0000;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:16px;">I Understand</button>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+
+                // Disable all interactions
+                document.body.style.pointerEvents = 'none';
+                overlay.style.pointerEvents = 'auto';
+                
+                setTimeout(function() {
+                    devtoolsOpen = false;
+                }, 2000);
+            }
+
+            // Block keyboard shortcuts
+            function blockKeys(e) {
+                // F12
+                if (e.keyCode === 123) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    triggerProtection();
+                    return false;
+                }
+                
+                // Ctrl+Shift+I/J/C
+                if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    triggerProtection();
+                    return false;
+                }
+                
+                // Ctrl+U (view source)
+                if (e.ctrlKey && e.keyCode === 85) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
+                
+                // Cmd+Option+I (Mac)
+                if (e.metaKey && e.altKey && e.keyCode === 73) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    triggerProtection();
+                    return false;
+                }
+                
+                // Cmd+Option+J (Mac)
+                if (e.metaKey && e.altKey && e.keyCode === 74) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    triggerProtection();
+                    return false;
+                }
+            }
+
+            // Block right click context menu
+            function blockContextMenu(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+
+            // Disable drag and drop of files
+            function blockDragDrop(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+
+            // Set up all protections
+            function initProtection() {
+                // Disable console immediately
+                disabledConsole();
+                
+                // Keyboard blocking
+                document.addEventListener('keydown', blockKeys, true);
+                document.addEventListener('keyup', blockKeys, true);
+                document.addEventListener('keypress', blockKeys, true);
+                
+                // Context menu
+                document.addEventListener('contextmenu', blockContextMenu, true);
+                
+                // Drag and drop
+                document.addEventListener('dragover', blockDragDrop, true);
+                document.addEventListener('drop', blockDragDrop, true);
+                
+                // DevTools detection loop
+                setInterval(checkDevTools, 500);
+                
+                // Additional detection methods
+                window.addEventListener('resize', checkDevTools, true);
+                window.addEventListener('focus', checkDevTools, true);
+                
+                // Mutation observer to detect DOM inspection
+                const observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.type === 'childList') {
+                            checkDevTools();
+                        }
+                    });
+                });
+                
+                if (document.body) {
+                    observer.observe(document.body, { childList: true, subtree: true });
+                } else {
+                    setTimeout(function() {
+                        if (document.body) observer.observe(document.body, { childList: true, subtree: true });
+                    }, 100);
+                }
+
+                // Prevent viewing source via location
+                try {
+                    Object.defineProperty(document, 'referrer', { get: function() { return ''; } });
+                    Object.defineProperty(document, 'documentElement', {
+                        get: function() {
+                            checkDevTools();
+                            return document.querySelector('html');
+                        }
+                    });
+                } catch(e) {}
+
+                // Override Function.prototype.toString to detect debugging
+                const originalToString = Function.prototype.toString;
+                Function.prototype.toString = function() {
+                    checkDevTools();
+                    return originalToString.apply(this, arguments);
+                };
+            }
+
+            // Initialize as soon as possible
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initProtection, true);
+            } else {
+                initProtection();
+            }
+            
+            // Also run immediately
+            initProtection();
+            
+        })();
+    </script>
 </head>
-<body class="bg-slate-950 text-slate-200 min-h-screen overflow-x-hidden">
+<body class="bg-slate-950 text-slate-200 min-h-screen overflow-x-hidden" oncontextmenu="return false;" onkeydown="return false;">
 
     <!-- Firebase SDK -->
     <script type="module">
@@ -64,13 +353,14 @@
 
         // 🔥 PASTE YOUR FIREBASE CONFIG HERE
         const firebaseConfig = {
-            apiKey: "AIzaSyCd-hIh7umnKhDBs3TW2hmrGo8VxylEUvA",
+           apiKey: "AIzaSyCd-hIh7umnKhDBs3TW2hmrGo8VxylEUvA",
   authDomain: "examvault-e4e35.firebaseapp.com",
   projectId: "examvault-e4e35",
   storageBucket: "examvault-e4e35.firebasestorage.app",
   messagingSenderId: "757613710021",
   appId: "1:757613710021:web:95386cabda4ff559b43eac",
   measurementId: "G-HC72M4E2G0"
+
         };
 
         let app, db;
@@ -80,9 +370,7 @@
             db = getFirestore(app);
             window.db = db;
             window.firebaseLoaded = true;
-            console.log('Firebase connected automatically');
         } catch (error) {
-            console.error('Firebase error:', error);
             window.firebaseError = error;
         }
 
@@ -97,12 +385,11 @@
                     <i class="fas fa-graduation-cap text-2xl text-white"></i>
                 </div>
                 <h1 class="text-3xl font-bold gradient-text mb-2">ExamVault</h1>
-                <p class="text-slate-400 text-sm">Cloud-Based Question Management</p>
+                <p class="text-slate-400 text-sm">Secure Question Management</p>
                 
-                <!-- Connection Status -->
                 <div id="connectionStatus" class="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 text-slate-400 text-xs">
                     <div class="loading-spinner w-3 h-3 border-2"></div>
-                    <span>Connecting to database...</span>
+                    <span>Connecting...</span>
                 </div>
             </div>
             
@@ -130,6 +417,7 @@
             
             <div class="mt-6 text-center text-xs text-slate-500">
                 <p>Default Credentials:</p>
+                <p class="mt-1 font-mono text-slate-400">admin / admin123</p>
                 <p class="font-mono text-slate-400">user / user123</p>
             </div>
         </div>
@@ -149,7 +437,6 @@
                         <p id="userRoleDisplay" class="text-xs text-purple-400 uppercase tracking-wider">User</p>
                     </div>
                 </div>
-                <!-- Auto-connected indicator -->
                 <div class="mt-3 flex items-center gap-2 text-xs text-emerald-400">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                     <span>Database Connected</span>
@@ -167,7 +454,6 @@
                     <span>Questions</span>
                 </button>
                 
-                <!-- Admin Only -->
                 <div id="adminOnlyNav" class="space-y-2 hidden">
                     <button onclick="switchTab('upload')" id="nav-upload" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800/50 text-slate-400 hover:text-white transition-all">
                         <i class="fas fa-cloud-upload-alt w-5"></i>
@@ -340,15 +626,9 @@
                                 <div>
                                     <label class="block text-sm font-medium text-slate-400 mb-2">Type</label>
                                     <div class="grid grid-cols-3 gap-3">
-                                        <button type="button" onclick="selectType('mcq')" class="type-btn active px-4 py-3 rounded-xl border border-purple-500 bg-purple-500/20 text-purple-300 text-sm font-medium" data-type="mcq">
-                                            MCQ
-                                        </button>
-                                        <button type="button" onclick="selectType('essay')" class="type-btn px-4 py-3 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-400 text-sm font-medium" data-type="essay">
-                                            Essay
-                                        </button>
-                                        <button type="button" onclick="selectType('short')" class="type-btn px-4 py-3 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-400 text-sm font-medium" data-type="short">
-                                            Short
-                                        </button>
+                                        <button type="button" onclick="selectType('mcq')" class="type-btn active px-4 py-3 rounded-xl border border-purple-500 bg-purple-500/20 text-purple-300 text-sm font-medium" data-type="mcq">MCQ</button>
+                                        <button type="button" onclick="selectType('essay')" class="type-btn px-4 py-3 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-400 text-sm font-medium" data-type="essay">Essay</button>
+                                        <button type="button" onclick="selectType('short')" class="type-btn px-4 py-3 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-400 text-sm font-medium" data-type="short">Short</button>
                                     </div>
                                     <input type="hidden" id="questionType" value="mcq">
                                 </div>
@@ -529,20 +809,17 @@
             { id: '2', subject: 'Physics', type: 'short', text: 'Define gravity.', date: new Date().toISOString(), downloads: 0 }
         ];
 
-        // Check Firebase connection on load
         window.onload = async function() {
-            // Wait for Firebase to init
             await new Promise(r => setTimeout(r, 500));
             
             const statusEl = document.getElementById('connectionStatus');
             
             if (window.firebaseLoaded) {
-                statusEl.innerHTML = '<i class="fas fa-check-circle text-emerald-400"></i><span class="text-emerald-400">Connected to Database</span>';
+                statusEl.innerHTML = '<i class="fas fa-check-circle text-emerald-400"></i><span class="text-emerald-400">Connected</span>';
                 statusEl.className = 'mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs';
                 
                 await checkFirstTimeSetup();
                 
-                // Auto-login if session exists
                 const session = localStorage.getItem('examvault_session');
                 if (session) {
                     const userData = JSON.parse(session);
@@ -553,7 +830,7 @@
                     }
                 }
             } else {
-                statusEl.innerHTML = '<i class="fas fa-times-circle text-red-400"></i><span class="text-red-400">Connection Failed</span>';
+                statusEl.innerHTML = '<i class="fas fa-times-circle text-red-400"></i><span class="text-red-400">Failed</span>';
                 statusEl.className = 'mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-xs';
             }
         };
@@ -638,12 +915,10 @@
                 document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
             }
             
-            // Start real-time sync
             setupRealtimeListeners();
         }
 
         function setupRealtimeListeners() {
-            // Questions
             window.firestore.onSnapshot(
                 window.firestore.query(window.firestore.collection(window.db, 'questions'), window.firestore.orderBy('date', 'desc')),
                 (snapshot) => {
@@ -655,7 +930,6 @@
                 }
             );
 
-            // Users
             window.firestore.onSnapshot(window.firestore.collection(window.db, 'users'), (snapshot) => {
                 users = [];
                 snapshot.forEach(doc => users.push({ id: doc.id, ...doc.data() }));
@@ -716,7 +990,6 @@
             
             document.getElementById('totalQuestionsBadge').textContent = questions.length + ' Questions';
             
-            // Update filter options
             const subjects = [...new Set(questions.map(q => q.subject))];
             document.getElementById('filterSubject').innerHTML = '<option value="">All Subjects</option>' + subjects.map(s => `<option value="${s}">${s}</option>`).join('');
         }
@@ -935,4 +1208,3 @@
     </script>
 </body>
 </html>
-
