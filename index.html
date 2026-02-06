@@ -56,36 +56,35 @@
 
     <!-- Firebase SDK -->
     <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-    import { 
-        getFirestore, collection, doc, setDoc, getDoc, getDocs, 
-        addDoc, deleteDoc, updateDoc, query, orderBy 
-    } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-    import { 
-        getAuth, signInWithEmailAndPassword, signOut 
-    } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { 
+            getFirestore, collection, doc, setDoc, getDoc, getDocs, 
+            addDoc, deleteDoc, updateDoc, onSnapshot, query, orderBy 
+        } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { 
+            getAuth, signInWithEmailAndPassword, signOut 
+        } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
-    // NEW CORRECT CONFIG
-    const firebaseConfig = {
-        apiKey: "AIzaSyAmcHtGt81Q1Oyks-F1wIrnLwo_d45WXbU",
-        authDomain: "examvault-9a23b.firebaseapp.com",
-        projectId: "examvault-9a23b",
-        storageBucket: "examvault-9a23b.firebasestorage.app",
-        messagingSenderId: "250179055911",
-        appId: "1:250179055911:web:0521d2ff8331748e7ab902"
-    };
+        const firebaseConfig = {
+            apiKey: "AIzaSyAmcHtGt81Q1Oyks-F1wIrnLwo_d45WXbU",
+            authDomain: "examvault-9a23b.firebaseapp.com",
+            projectId: "examvault-9a23b",
+            storageBucket: "examvault-9a23b.firebasestorage.app",
+            messagingSenderId: "250179055911",
+            appId: "1:250179055911:web:0521d2ff8331748e7ab902"
+        };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-    
-    window.db = db;
-    window.auth = auth;
-    window.firebaseLoaded = true;
-    window.firestore = { collection, doc, setDoc, getDoc, getDocs, addDoc, deleteDoc, updateDoc, query, orderBy };
-    window.signInWithEmailAndPassword = signInWithEmailAndPassword;
-    window.signOut = signOut;
-</script>
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        
+        window.db = db;
+        window.auth = auth;
+        window.firebaseLoaded = true;
+        window.firestore = { collection, doc, setDoc, getDoc, getDocs, addDoc, deleteDoc, updateDoc, onSnapshot, query, orderBy };
+        window.signInWithEmailAndPassword = signInWithEmailAndPassword;
+        window.signOut = signOut;
+    </script>
 
     <!-- Login Screen -->
     <div id="loginScreen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950">
@@ -132,40 +131,383 @@
 
     <!-- Main Application -->
     <div id="app" class="hidden-section">
-        <!-- Header -->
-        <header class="glass sticky top-0 z-20 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
-            <h1 class="text-xl font-semibold text-white">ExamVault Dashboard</h1>
-            <div class="flex items-center gap-4">
-                <span id="userRoleDisplay" class="text-purple-400 text-sm"></span>
-                <button onclick="logout()" class="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm">Logout</button>
+        <!-- Sidebar -->
+        <aside class="fixed left-0 top-0 h-full w-64 glass z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300" id="sidebar">
+            <div class="p-6 border-b border-slate-800">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-graduation-cap text-white"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-white">ExamVault</h2>
+                        <p id="userRoleDisplay" class="text-xs text-purple-400 uppercase tracking-wider">User</p>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center gap-2 text-xs text-emerald-400">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Database Connected</span>
+                </div>
             </div>
-        </header>
-
-        <main class="p-6 max-w-7xl mx-auto">
-            <div id="userInfo" class="mb-6 p-4 bg-slate-800 rounded-xl">
-                <p>Welcome, <span id="userName" class="font-bold"></span>!</p>
-                <p class="text-slate-400 text-sm">Role: <span id="userRole"></span></p>
-            </div>
-
-            <!-- Admin Only Section -->
-            <div id="adminSection" class="hidden-section mb-6">
-                <button onclick="addSampleQuestion()" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg mr-2">
-                    <i class="fas fa-plus mr-2"></i>Add Sample Question
+            
+            <nav class="p-4 space-y-2">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-purple-600/20 text-purple-300 border border-purple-500/30 transition-all">
+                    <i class="fas fa-home w-5"></i>
+                    <span>Dashboard</span>
+                </button>
+                
+                <button onclick="switchTab('questions')" id="nav-questions" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800/50 text-slate-400 hover:text-white transition-all">
+                    <i class="fas fa-question-circle w-5"></i>
+                    <span>Questions</span>
+                </button>
+                
+                <!-- ADMIN ONLY NAV -->
+                <div id="adminOnlyNav" class="hidden-section space-y-2">
+                    <button onclick="switchTab('upload')" id="nav-upload" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800/50 text-slate-400 hover:text-white transition-all">
+                        <i class="fas fa-cloud-upload-alt w-5"></i>
+                        <span>Upload</span>
+                    </button>
+                    <button onclick="switchTab('users')" id="nav-users" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800/50 text-slate-400 hover:text-white transition-all">
+                        <i class="fas fa-users w-5"></i>
+                        <span>Users</span>
+                    </button>
+                </div>
+                
+                <button onclick="switchTab('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800/50 text-slate-400 hover:text-white transition-all">
+                    <i class="fas fa-cog w-5"></i>
+                    <span>Settings</span>
+                </button>
+            </nav>
+            
+            <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-800">
+                <button onclick="logout()" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-500/10 text-red-400 hover:text-red-300 transition-all">
+                    <i class="fas fa-sign-out-alt w-5"></i>
+                    <span>Logout</span>
                 </button>
             </div>
+        </aside>
 
-            <!-- Questions List -->
-            <div class="glass rounded-2xl p-6 border border-slate-800">
-                <h2 class="text-lg font-semibold mb-4">Questions</h2>
-                <div id="questionsList" class="space-y-3">
-                    <p class="text-slate-500">Loading...</p>
+        <!-- MOBILE OVERLAY -->
+        <div id="mobileOverlay" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+        <!-- Main Content -->
+        <main class="md:ml-64 min-h-screen transition-all duration-300">
+            <!-- Header -->
+            <header class="glass sticky top-0 z-20 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleSidebar()" class="md:hidden text-slate-400 hover:text-white">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    <h1 id="pageTitle" class="text-xl font-semibold text-white">Dashboard</h1>
                 </div>
+                
+                <div class="flex items-center gap-4">
+                    <div class="hidden sm:flex items-center gap-2 text-sm text-slate-400 bg-slate-800/50 px-3 py-1.5 rounded-full">
+                        <i class="fas fa-database text-purple-400"></i>
+                        <span id="totalQuestionsBadge">0 Questions</span>
+                    </div>
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white font-semibold text-sm" id="userAvatar">
+                        U
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Container -->
+            <div class="p-6 max-w-7xl mx-auto">
+                
+                <!-- Dashboard Tab -->
+                <div id="tab-dashboard" class="tab-content animate-slide-in">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="glass rounded-2xl p-6 border border-slate-800">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                                    <i class="fas fa-question text-purple-400 text-xl"></i>
+                                </div>
+                                <span class="text-2xl font-bold text-white" id="statTotal">0</span>
+                            </div>
+                            <h3 class="text-slate-400 text-sm">Total Questions</h3>
+                        </div>
+                        
+                        <div class="glass rounded-2xl p-6 border border-slate-800">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                                    <i class="fas fa-download text-blue-400 text-xl"></i>
+                                </div>
+                                <span class="text-2xl font-bold text-white" id="statDownloads">0</span>
+                            </div>
+                            <h3 class="text-slate-400 text-sm">Total Downloads</h3>
+                        </div>
+                        
+                        <div class="glass rounded-2xl p-6 border border-slate-800">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                                    <i class="fas fa-users text-emerald-400 text-xl"></i>
+                                </div>
+                                <span class="text-2xl font-bold text-white" id="statUsers">0</span>
+                            </div>
+                            <h3 class="text-slate-400 text-sm">Active Users</h3>
+                        </div>
+                    </div>
+
+                    <div class="glass rounded-2xl p-6 border border-slate-800">
+                        <h3 class="text-lg font-semibold text-white mb-4">Recent Questions</h3>
+                        <div id="activityList" class="space-y-3">
+                            <p class="text-slate-500 text-center py-4">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Questions Tab -->
+                <div id="tab-questions" class="tab-content hidden-section animate-slide-in">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                        <div class="relative flex-1 max-w-md w-full">
+                            <i class="fas fa-search absolute left-4 top-3.5 text-slate-500"></i>
+                            <input type="text" id="searchInput" placeholder="Search questions..." 
+                                class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-3 pl-12 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
+                                oninput="searchQuestions()">
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            <!-- ADMIN ONLY: Delete Selected & Filter -->
+                            <div id="adminActions" class="hidden-section flex gap-2">
+                                <button onclick="deleteSelected()" class="hidden px-4 py-2 bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500/20 text-sm font-medium" id="deleteSelectedBtn">
+                                    <i class="fas fa-trash mr-2"></i>Delete Selected
+                                </button>
+                                <select id="filterSubject" onchange="filterBySubject()" class="bg-slate-800/50 border border-slate-700 rounded-xl py-2 px-4 text-white text-sm">
+                                    <option value="">All Subjects</option>
+                                </select>
+                            </div>
+                            <!-- USER & ADMIN: Download All -->
+                            <button onclick="downloadAll()" class="px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-xl hover:bg-emerald-500/20 text-sm font-medium">
+                                <i class="fas fa-download mr-2"></i>Download All
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="glass rounded-2xl border border-slate-800 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left">
+                                <thead class="bg-slate-800/50 text-slate-400 text-sm uppercase">
+                                    <tr>
+                                        <!-- ADMIN ONLY: Checkbox -->
+                                        <th class="p-4 w-12 admin-only hidden"><input type="checkbox" id="selectAll" class="custom-checkbox rounded bg-slate-700 border-slate-600" onchange="toggleSelectAll()"></th>
+                                        <th class="p-4">Question</th>
+                                        <th class="p-4">Subject</th>
+                                        <th class="p-4">Type</th>
+                                        <th class="p-4">Date</th>
+                                        <th class="p-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="questionsTableBody" class="divide-y divide-slate-800">
+                                    <tr><td colspan="6" class="p-8 text-center text-slate-500">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="emptyState" class="hidden p-12 text-center">
+                            <i class="fas fa-inbox text-slate-600 text-4xl mb-4"></i>
+                            <p class="text-slate-500">No questions found</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upload Tab (ADMIN ONLY) -->
+                <div id="tab-upload" class="tab-content hidden-section animate-slide-in">
+                    <div class="max-w-2xl mx-auto">
+                        <div class="glass rounded-2xl p-8 border border-slate-800">
+                            <div class="text-center mb-8">
+                                <div class="w-20 h-20 rounded-full bg-purple-500/10 flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-cloud-upload-alt text-purple-400 text-3xl"></i>
+                                </div>
+                                <h3 class="text-xl font-semibold text-white mb-2">Upload New Question</h3>
+                                <p class="text-slate-400 text-sm">Saved to cloud automatically</p>
+                            </div>
+
+                            <form id="uploadForm" class="space-y-6" onsubmit="event.preventDefault(); uploadQuestion();">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-400 mb-2">Subject</label>
+                                    <select id="uploadSubject" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-3 px-4 text-white focus:border-purple-500">
+                                        <option value="Mathematics">Mathematics</option>
+                                        <option value="Physics">Physics</option>
+                                        <option value="Chemistry">Chemistry</option>
+                                        <option value="Biology">Biology</option>
+                                        <option value="Computer Science">Computer Science</option>
+                                        <option value="History">History</option>
+                                        <option value="Geography">Geography</option>
+                                        <option value="Literature">Literature</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-400 mb-2">Type</label>
+                                    <div class="grid grid-cols-3 gap-3">
+                                        <button type="button" onclick="selectType('mcq')" class="type-btn active px-4 py-3 rounded-xl border border-purple-500 bg-purple-500/20 text-purple-300 text-sm font-medium" data-type="mcq">MCQ</button>
+                                        <button type="button" onclick="selectType('essay')" class="type-btn px-4 py-3 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-400 text-sm font-medium" data-type="essay">Essay</button>
+                                        <button type="button" onclick="selectType('short')" class="type-btn px-4 py-3 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-400 text-sm font-medium" data-type="short">Short</button>
+                                    </div>
+                                    <input type="hidden" id="questionType" value="mcq">
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-400 mb-2">Question</label>
+                                    <textarea id="questionText" rows="4" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-3 px-4 text-white placeholder-slate-500 focus:border-purple-500 resize-none" placeholder="Enter question..."></textarea>
+                                </div>
+
+                                <div id="mcqOptions" class="space-y-3">
+                                    <label class="block text-sm font-medium text-slate-400">Options</label>
+                                    <input type="text" placeholder="A" class="option-input w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2 px-4 text-white text-sm mb-2">
+                                    <input type="text" placeholder="B" class="option-input w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2 px-4 text-white text-sm mb-2">
+                                    <input type="text" placeholder="C" class="option-input w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2 px-4 text-white text-sm mb-2">
+                                    <input type="text" placeholder="D" class="option-input w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2 px-4 text-white text-sm">
+                                    <input type="text" placeholder="Correct Answer" class="correct-answer w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2 px-4 text-white text-sm mt-2">
+                                </div>
+
+                                <button type="submit" id="uploadBtn" class="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold py-3 rounded-xl">
+                                    <i class="fas fa-plus-circle mr-2"></i>Add to Cloud
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Management (ADMIN ONLY) -->
+                <div id="tab-users" class="tab-content hidden-section animate-slide-in">
+                    <div class="glass rounded-2xl p-6 border border-slate-800">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-lg font-semibold text-white">User Management</h3>
+                            <button onclick="showAddUserModal()" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm">
+                                <i class="fas fa-user-plus mr-2"></i>Add User
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left">
+                                <thead class="bg-slate-800/50 text-slate-400 text-sm">
+                                    <tr>
+                                        <th class="p-4">Username</th>
+                                        <th class="p-4">Role</th>
+                                        <th class="p-4">Last Login</th>
+                                        <th class="p-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody" class="divide-y divide-slate-800">
+                                    <tr><td colspan="4" class="p-8 text-center text-slate-500">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Tab -->
+                <div id="tab-settings" class="tab-content hidden-section animate-slide-in">
+                    <!-- User Settings -->
+                    <div id="userSettingsPanel" class="max-w-2xl mx-auto space-y-6 hidden-section">
+                        <div class="glass rounded-2xl p-6 border border-slate-800">
+                            <h3 class="text-lg font-semibold text-white mb-4">My Profile</h3>
+                            <div class="flex items-center gap-4">
+                                <div class="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold" id="userSettingsAvatar">U</div>
+                                <div>
+                                    <p class="text-white font-semibold text-lg" id="userSettingsName">User</p>
+                                    <p class="text-sm text-blue-400">Student</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="glass rounded-2xl p-6 border border-slate-800">
+                            <h3 class="text-lg font-semibold text-white mb-4">Download</h3>
+                            <button onclick="downloadAll()" class="w-full flex items-center justify-center gap-3 p-4 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400">
+                                <i class="fas fa-download text-2xl"></i>
+                                <div class="text-left">
+                                    <p class="font-semibold">Download All Questions</p>
+                                    <p class="text-xs text-emerald-400/70" id="userQuestionCount">0 available</p>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Admin Settings -->
+                    <div id="adminSettingsPanel" class="max-w-2xl mx-auto space-y-6 hidden-section">
+                        <div class="glass rounded-2xl p-6 border border-slate-800">
+                            <h3 class="text-lg font-semibold text-white mb-4">Admin Profile</h3>
+                            <div class="flex items-center gap-4">
+                                <div class="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-red-600 flex items-center justify-center text-white text-2xl font-bold" id="adminSettingsAvatar">A</div>
+                                <div>
+                                    <p class="text-white font-semibold text-lg" id="adminSettingsName">Admin</p>
+                                    <p class="text-sm text-purple-400">Administrator</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="glass rounded-2xl p-6 border border-slate-800">
+                            <h3 class="text-lg font-semibold text-white mb-4">Database Management</h3>
+                            <div class="space-y-3">
+                                <button onclick="exportAll()" class="w-full flex items-center justify-between p-4 rounded-xl bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700">
+                                    <div class="flex items-center gap-3">
+                                        <i class="fas fa-file-export text-blue-400 text-xl"></i>
+                                        <span class="text-white">Export All Data</span>
+                                    </div>
+                                    <i class="fas fa-chevron-right text-slate-500"></i>
+                                </button>
+                                <button onclick="clearAllData()" class="w-full flex items-center justify-between p-4 rounded-xl bg-slate-800/30 hover:bg-red-500/10 border border-slate-700 hover:border-red-500/30">
+                                    <div class="flex items-center gap-3">
+                                        <i class="fas fa-trash-alt text-red-400 text-xl"></i>
+                                        <span class="text-white">Clear All Questions</span>
+                                    </div>
+                                    <i class="fas fa-chevron-right text-slate-500"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </main>
     </div>
 
+    <!-- Edit Modal -->
+    <div id="editModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <div class="glass rounded-2xl w-full max-w-lg p-6 animate-slide-in border border-purple-500/30">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold text-white">Edit Question</h3>
+                <button onclick="closeEditModal()" class="text-slate-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Question</label>
+                    <textarea id="editQuestionText" rows="3" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-2 px-4 text-white focus:border-purple-500"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Subject</label>
+                    <select id="editSubject" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-2 px-4 text-white focus:border-purple-500">
+                        <option>Mathematics</option>
+                        <option>Physics</option>
+                        <option>Chemistry</option>
+                        <option>Biology</option>
+                        <option>Computer Science</option>
+                        <option>History</option>
+                        <option>Geography</option>
+                        <option>Literature</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-3 pt-4">
+                    <button onclick="closeEditModal()" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white">Cancel</button>
+                    <button onclick="saveEdit()" class="px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <div class="glass rounded-xl px-6 py-4 border border-purple-500/30 flex items-center gap-3">
+            <i id="toastIcon" class="fas fa-check-circle text-emerald-400 text-xl"></i>
+            <span id="toastMessage" class="text-white font-medium">Success</span>
+        </div>
+    </div>
+
     <script>
         let currentUser = null;
+        let questions = [];
+        let users = [];
+        let selectedQuestions = new Set();
+        let editingId = null;
 
         window.onload = async function() {
             const statusEl = document.getElementById('connectionStatus');
@@ -177,7 +519,6 @@
             
             statusEl.innerHTML = '<span class="text-emerald-400">✅ Connected</span>';
             
-            // Check existing session
             const session = localStorage.getItem('examvault_session');
             if (session) {
                 try {
@@ -188,63 +529,74 @@
                         showApp();
                     }
                 } catch (e) {
-                    console.error('Session error:', e);
                     localStorage.removeItem('examvault_session');
                 }
             }
         };
 
-     async function login() {
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
-    const btn = document.getElementById('loginBtn');
-    const errorDiv = document.getElementById('loginError');
-    
-    btn.innerHTML = '<div class="loading-spinner w-5 h-5 border-2"></div>';
-    errorDiv.classList.add('hidden');
-    
-    try {
-        const email = `${username}@examvault.com`;
-        const userCredential = await window.signInWithEmailAndPassword(window.auth, email, password);
-        const uid = userCredential.user.uid;
-        
-        const userDoc = await window.firestore.getDoc(window.firestore.doc(window.db, 'users', uid));
-        
-        if (userDoc.exists()) {
-            currentUser = { uid, ...userDoc.data() };
-        } else {
-            currentUser = {
-                uid,
-                username: username,
-                role: username === 'admin' ? 'admin' : 'user',
-                email: email
-            };
-            await window.firestore.setDoc(window.firestore.doc(window.db, 'users', uid), currentUser);
+        async function login() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('loginBtn');
+            const errorDiv = document.getElementById('loginError');
+            
+            btn.innerHTML = '<div class="loading-spinner w-5 h-5 border-2"></div>';
+            errorDiv.classList.add('hidden');
+            
+            try {
+                const email = `${username}@examvault.com`;
+                const userCredential = await window.signInWithEmailAndPassword(window.auth, email, password);
+                const uid = userCredential.user.uid;
+                
+                const userDoc = await window.firestore.getDoc(window.firestore.doc(window.db, 'users', uid));
+                
+                if (userDoc.exists()) {
+                    currentUser = { uid, ...userDoc.data() };
+                } else {
+                    currentUser = {
+                        uid,
+                        username: username,
+                        role: username === 'admin' ? 'admin' : 'user',
+                        email: email
+                    };
+                    await window.firestore.setDoc(window.firestore.doc(window.db, 'users', uid), currentUser);
+                }
+                
+                localStorage.setItem('examvault_session', JSON.stringify({ uid }));
+                showApp();
+                
+            } catch (error) {
+                console.error(error);
+                btn.innerHTML = '<span>Sign In</span>';
+                errorDiv.classList.remove('hidden');
+                errorDiv.textContent = error.message;
+            }
         }
-        
-        localStorage.setItem('examvault_session', JSON.stringify({ uid }));
-        showApp();
-        
-    } catch (error) {
-        console.error(error);
-        btn.innerHTML = '<span>Sign In</span>';
-        errorDiv.classList.remove('hidden');
-        errorDiv.textContent = error.message;
-    }
-}
+
         function showApp() {
             document.getElementById('loginScreen').classList.add('hidden-section');
             document.getElementById('app').classList.remove('hidden-section');
-            
-            document.getElementById('userName').textContent = currentUser.username;
-            document.getElementById('userRole').textContent = currentUser.role;
-            document.getElementById('userRoleDisplay').textContent = currentUser.role.toUpperCase();
+            document.getElementById('userRoleDisplay').textContent = currentUser.role;
+            document.getElementById('userAvatar').textContent = currentUser.username.charAt(0).toUpperCase();
             
             if (currentUser.role === 'admin') {
-                document.getElementById('adminSection').classList.remove('hidden-section');
+                // Show admin elements
+                document.getElementById('adminOnlyNav').classList.remove('hidden-section');
+                document.getElementById('adminActions').classList.remove('hidden-section');
+                document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+                document.getElementById('adminSettingsPanel').classList.remove('hidden-section');
+                document.getElementById('adminSettingsAvatar').textContent = currentUser.username.charAt(0).toUpperCase());
+                document.getElementById('adminSettingsName').textContent = currentUser.username;
+            } else {
+                // Show user elements
+                document.getElementById('userSettingsPanel').classList.remove('hidden-section');
+                document.getElementById('userSettingsAvatar').textContent = currentUser.username.charAt(0).toUpperCase());
+                document.getElementById('userSettingsName').textContent = currentUser.username;
             }
             
             loadQuestions();
+            if (currentUser.role === 'admin') loadUsers();
+            updateStats();
         }
 
         async function logout() {
@@ -255,54 +607,188 @@
             location.reload();
         }
 
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden-section'));
+            document.getElementById('tab-' + tabName).classList.remove('hidden-section');
+            
+            document.querySelectorAll('nav button').forEach(btn => {
+                btn.classList.remove('bg-purple-600/20', 'text-purple-300', 'border-purple-500/30');
+                btn.classList.add('text-slate-400');
+            });
+            
+            const navBtn = document.getElementById('nav-' + tabName);
+            if (navBtn) {
+                navBtn.classList.add('bg-purple-600/20', 'text-purple-300', 'border-purple-500/30');
+                navBtn.classList.remove('text-slate-400');
+            }
+            
+            const titles = {
+                'dashboard': 'Dashboard',
+                'questions': 'Question Bank',
+                'upload': 'Upload Question',
+                'users': 'User Management',
+                'settings': 'Settings'
+            };
+            document.getElementById('pageTitle').textContent = titles[tabName] || tabName;
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('mobileOverlay').classList.toggle('hidden');
+        }
+
         async function loadQuestions() {
             try {
-                const snapshot = await window.firestore.getDocs(
-                    window.firestore.collection(window.db, 'questions')
+                const q = window.firestore.query(
+                    window.firestore.collection(window.db, 'questions'),
+                    window.firestore.orderBy('date', 'desc')
                 );
+                const snapshot = await window.firestore.getDocs(q);
                 
-                const questions = [];
+                questions = [];
                 snapshot.forEach(doc => {
                     questions.push({ id: doc.id, ...doc.data() });
                 });
                 
-                const listEl = document.getElementById('questionsList');
-                if (questions.length === 0) {
-                    listEl.innerHTML = '<p class="text-slate-500">No questions yet</p>';
-                } else {
-                    listEl.innerHTML = questions.map(q => `
-                        <div class="p-4 bg-slate-800 rounded-lg flex justify-between items-center">
-                            <div>
-                                <p class="font-semibold">${q.subject || 'No Subject'}</p>
-                                <p class="text-slate-400 text-sm">${q.text?.substring(0, 50)}...</p>
-                            </div>
-                            ${currentUser.role === 'admin' ? `
-                                <button onclick="deleteQuestion('${q.id}')" class="text-red-400 hover:text-red-300">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            ` : ''}
-                        </div>
-                    `).join('');
-                }
+                renderQuestions();
+                updateSubjectFilter();
+                updateStats();
             } catch (error) {
-                console.error('Error:', error);
-                document.getElementById('questionsList').innerHTML = `<p class="text-red-400">Error: ${error.message}</p>`;
+                console.error('Error loading questions:', error);
             }
         }
 
-        async function addSampleQuestion() {
+        function renderQuestions(filtered = questions) {
+            const tbody = document.getElementById('questionsTableBody');
+            const emptyState = document.getElementById('emptyState');
+            
+            if (filtered.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            
+            emptyState.classList.add('hidden');
+            
+            const isAdmin = currentUser.role === 'admin';
+            
+            tbody.innerHTML = filtered.map(q => `
+                <tr class="hover:bg-slate-800/30 transition-colors">
+                    ${isAdmin ? `
+                    <td class="p-4">
+                        <input type="checkbox" class="custom-checkbox rounded bg-slate-700 border-slate-600" 
+                            onchange="toggleSelection('${q.id}')" 
+                            ${selectedQuestions.has(q.id) ? 'checked' : ''}>
+                    </td>` : ''}
+                    <td class="p-4">
+                        <div class="text-white font-medium truncate max-w-xs">${q.text}</div>
+                    </td>
+                    <td class="p-4">
+                        <span class="px-2 py-1 rounded-full bg-slate-700 text-slate-300 text-xs">${q.subject}</span>
+                    </td>
+                    <td class="p-4">
+                        <span class="px-2 py-1 rounded-full ${getTypeColor(q.type)} text-xs capitalize">${q.type}</span>
+                    </td>
+                    <td class="p-4 text-slate-400 text-sm">
+                        ${new Date(q.date).toLocaleDateString()}
+                    </td>
+                    <td class="p-4 text-right">
+                        <!-- DOWNLOAD: Available to both -->
+                        <button onclick="downloadQuestion('${q.id}')" class="text-emerald-400 hover:text-emerald-300 mr-3" title="Download">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        ${isAdmin ? `
+                            <!-- EDIT & DELETE: Admin only -->
+                            <button onclick="editQuestion('${q.id}')" class="text-blue-400 hover:text-blue-300 mr-3" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="deleteQuestion('${q.id}')" class="text-red-400 hover:text-red-300" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `).join('');
+            
+            document.getElementById('totalQuestionsBadge').textContent = `${questions.length} Questions`;
+            const userCountEl = document.getElementById('userQuestionCount');
+            if (userCountEl) userCountEl.textContent = `${questions.length} available`;
+        }
+
+        function getTypeColor(type) {
+            const colors = {
+                'mcq': 'bg-blue-500/20 text-blue-300',
+                'essay': 'bg-purple-500/20 text-purple-300',
+                'short': 'bg-emerald-500/20 text-emerald-300'
+            };
+            return colors[type] || 'bg-slate-700 text-slate-300';
+        }
+
+        function updateSubjectFilter() {
+            const subjects = [...new Set(questions.map(q => q.subject))];
+            const select = document.getElementById('filterSubject');
+            if (!select) return;
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">All Subjects</option>' + 
+                subjects.map(s => `<option value="${s}">${s}</option>`).join('');
+            select.value = currentValue;
+        }
+
+        function searchQuestions() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = questions.filter(q => 
+                q.text.toLowerCase().includes(searchTerm) ||
+                q.subject.toLowerCase().includes(searchTerm)
+            );
+            renderQuestions(filtered);
+        }
+
+        function filterBySubject() {
+            const subject = document.getElementById('filterSubject').value;
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            let filtered = questions;
+            
+            if (subject) filtered = filtered.filter(q => q.subject === subject);
+            if (searchTerm) filtered = filtered.filter(q => q.text.toLowerCase().includes(searchTerm));
+            renderQuestions(filtered);
+        }
+
+        function toggleSelection(id) {
+            if (selectedQuestions.has(id)) selectedQuestions.delete(id);
+            else selectedQuestions.add(id);
+            updateDeleteButton();
+        }
+
+        function toggleSelectAll() {
+            const allChecked = document.getElementById('selectAll').checked;
+            if (allChecked) questions.forEach(q => selectedQuestions.add(q.id));
+            else selectedQuestions.clear();
+            renderQuestions();
+            updateDeleteButton();
+        }
+
+        function updateDeleteButton() {
+            const btn = document.getElementById('deleteSelectedBtn');
+            if (!btn) return;
+            if (selectedQuestions.size > 0) {
+                btn.classList.remove('hidden');
+                btn.innerHTML = `<i class="fas fa-trash mr-2"></i>Delete Selected (${selectedQuestions.size})`;
+            } else {
+                btn.classList.add('hidden');
+            }
+        }
+
+        async function deleteSelected() {
+            if (!confirm(`Delete ${selectedQuestions.size} questions?`)) return;
             try {
-                await window.firestore.addDoc(window.firestore.collection(window.db, 'questions'), {
-                    subject: 'Mathematics',
-                    text: 'What is 2+2?',
-                    answer: '4',
-                    createdAt: new Date().toISOString(),
-                    createdBy: currentUser.uid
-                });
+                for (const id of selectedQuestions) {
+                    await window.firestore.deleteDoc(window.firestore.doc(window.db, 'questions', id));
+                }
+                selectedQuestions.clear();
+                showToast('Questions deleted');
                 loadQuestions();
-                alert('Question added!');
             } catch (error) {
-                alert('Error: ' + error.message);
+                showToast('Error deleting', 'error');
             }
         }
 
@@ -310,14 +796,285 @@
             if (!confirm('Delete?')) return;
             try {
                 await window.firestore.deleteDoc(window.firestore.doc(window.db, 'questions', id));
+                showToast('Deleted');
                 loadQuestions();
             } catch (error) {
-                alert('Error: ' + error.message);
+                showToast('Error', 'error');
             }
         }
+
+        function selectType(type) {
+            document.querySelectorAll('.type-btn').forEach(btn => {
+                btn.classList.remove('active', 'border-purple-500', 'bg-purple-500/20', 'text-purple-300');
+                btn.classList.add('border-slate-700', 'bg-slate-800/50', 'text-slate-400');
+            });
+            const activeBtn = document.querySelector(`[data-type="${type}"]`);
+            if (activeBtn) {
+                activeBtn.classList.add('active', 'border-purple-500', 'bg-purple-500/20', 'text-purple-300');
+                activeBtn.classList.remove('border-slate-700', 'bg-slate-800/50', 'text-slate-400');
+            }
+            document.getElementById('questionType').value = type;
+            const mcqOptions = document.getElementById('mcqOptions');
+            if (mcqOptions) mcqOptions.classList.toggle('hidden', type !== 'mcq');
+        }
+
+        async function uploadQuestion() {
+            const subject = document.getElementById('uploadSubject').value;
+            const type = document.getElementById('questionType').value;
+            const text = document.getElementById('questionText').value;
+            
+            if (!text.trim()) {
+                showToast('Enter question', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('uploadBtn');
+            btn.innerHTML = '<div class="loading-spinner w-5 h-5 border-2 inline-block mr-2"></div>Uploading...';
+            btn.disabled = true;
+            
+            try {
+                const questionData = {
+                    subject, type, text: text.trim(),
+                    date: new Date().toISOString(),
+                    downloads: 0,
+                    createdBy: currentUser.uid
+                };
+                
+                if (type === 'mcq') {
+                    const options = Array.from(document.querySelectorAll('.option-input'))
+                        .map(input => input.value.trim()).filter(o => o);
+                    const answer = document.querySelector('.correct-answer')?.value.trim();
+                    if (options.length >= 2) {
+                        questionData.options = options;
+                        questionData.answer = answer;
+                    }
+                }
+                
+                await window.firestore.addDoc(window.firestore.collection(window.db, 'questions'), questionData);
+                showToast('Uploaded');
+                document.getElementById('uploadForm').reset();
+                selectType('mcq');
+                switchTab('questions');
+                loadQuestions();
+            } catch (error) {
+                showToast('Error: ' + error.message, 'error');
+            } finally {
+                btn.innerHTML = '<i class="fas fa-plus-circle mr-2"></i>Add to Cloud';
+                btn.disabled = false;
+            }
+        }
+
+        function editQuestion(id) {
+            const question = questions.find(q => q.id === id);
+            if (!question) return;
+            editingId = id;
+            document.getElementById('editQuestionText').value = question.text;
+            document.getElementById('editSubject').value = question.subject;
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+            editingId = null;
+        }
+
+        async function saveEdit() {
+            if (!editingId) return;
+            try {
+                await window.firestore.updateDoc(window.firestore.doc(window.db, 'questions', editingId), {
+                    text: document.getElementById('editQuestionText').value.trim(),
+                    subject: document.getElementById('editSubject').value,
+                    updatedAt: new Date().toISOString()
+                });
+                showToast('Updated');
+                closeEditModal();
+                loadQuestions();
+            } catch (error) {
+                showToast('Error', 'error');
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const snapshot = await window.firestore.getDocs(window.firestore.collection(window.db, 'users'));
+                users = [];
+                snapshot.forEach(doc => {
+                    users.push({ id: doc.id, ...doc.data() });
+                });
+                renderUsers();
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+
+        function renderUsers() {
+            const tbody = document.getElementById('usersTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = users.map(u => `
+                <tr class="hover:bg-slate-800/30">
+                    <td class="p-4 text-white">${u.username}</td>
+                    <td class="p-4">
+                        <span class="px-2 py-1 rounded-full ${u.role === 'admin' ? 'bg-purple-500/20 text-purple-300' : 'bg-blue-500/20 text-blue-300'} text-xs capitalize">${u.role}</span>
+                    </td>
+                    <td class="p-4 text-slate-400 text-sm">${u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}</td>
+                    <td class="p-4 text-right">
+                        ${u.id !== currentUser.uid ? `
+                            <button onclick="deleteUser('${u.id}')" class="text-red-400 hover:text-red-300">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        ` : '<span class="text-slate-600 text-xs">You</span>'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('Delete user?')) return;
+            try {
+                await window.firestore.deleteDoc(window.firestore.doc(window.db, 'users', id));
+                showToast('User deleted');
+                loadUsers();
+            } catch (error) {
+                showToast('Error', 'error');
+            }
+        }
+
+        function showAddUserModal() {
+            const username = prompt('Username:');
+            if (!username) return;
+            const password = prompt('Password:');
+            if (!password) return;
+            const role = confirm('Admin?') ? 'admin' : 'user';
+            addUser(username, password, role);
+        }
+
+        async function addUser(username, password, role) {
+            try {
+                await window.firestore.addDoc(window.firestore.collection(window.db, 'users'), {
+                    username, password, role, lastLogin: null
+                });
+                showToast('User added');
+                loadUsers();
+            } catch (error) {
+                showToast('Error', 'error');
+            }
+        }
+
+        function downloadQuestion(id) {
+            const question = questions.find(q => q.id === id);
+            if (!question) return;
+            
+            const content = formatQuestionForDownload(question);
+            downloadFile(content, `question_${id}.txt`);
+            
+            window.firestore.updateDoc(window.firestore.doc(window.db, 'questions', id), {
+                downloads: (question.downloads || 0) + 1
+            });
+            updateStats();
+        }
+
+        function downloadAll() {
+            if (questions.length === 0) {
+                showToast('No questions', 'error');
+                return;
+            }
+            const content = questions.map(q => formatQuestionForDownload(q)).join('\n\n' + '='.repeat(50) + '\n\n');
+            downloadFile(content, 'all_questions.txt');
+            showToast('Downloaded');
+        }
+
+        function formatQuestionForDownload(q) {
+            let content = `Subject: ${q.subject}\nType: ${q.type.toUpperCase()}\nDate: ${new Date(q.date).toLocaleString()}\n\nQuestion: ${q.text}\n`;
+            if (q.type === 'mcq' && q.options) {
+                content += '\nOptions:\n';
+                q.options.forEach((opt, idx) => {
+                    content += `${String.fromCharCode(65 + idx)}. ${opt}\n`;
+                });
+                if (q.answer) content += `\nCorrect Answer: ${q.answer}`;
+            }
+            return content;
+        }
+
+        function downloadFile(content, filename) {
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        async function updateStats() {
+            document.getElementById('statTotal').textContent = questions.length;
+            document.getElementById('statDownloads').textContent = questions.reduce((sum, q) => sum + (q.downloads || 0), 0);
+            
+            try {
+                const usersSnapshot = await window.firestore.getDocs(window.firestore.collection(window.db, 'users'));
+                document.getElementById('statUsers').textContent = usersSnapshot.size;
+            } catch (e) {
+                document.getElementById('statUsers').textContent = '2';
+            }
+            
+            const recentQuestions = questions.slice(0, 5);
+            const activityList = document.getElementById('activityList');
+            
+            if (recentQuestions.length === 0) {
+                activityList.innerHTML = '<p class="text-slate-500 text-center py-4">No recent activity</p>';
+            } else {
+                activityList.innerHTML = recentQuestions.map(q => `
+                    <div class="flex items-center justify-between p-3 rounded-lg bg-slate-800/30">
+                        <div>
+                            <p class="text-white text-sm truncate max-w-xs">${q.text}</p>
+                            <p class="text-xs text-slate-500">${q.subject} • ${new Date(q.date).toLocaleDateString()}</p>
+                        </div>
+                        <span class="text-xs px-2 py-1 rounded-full ${getTypeColor(q.type)} capitalize">${q.type}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function exportAll() {
+            const data = { questions, users, exportDate: new Date().toISOString() };
+            downloadFile(JSON.stringify(data, null, 2), 'examvault_backup.json');
+            showToast('Exported');
+        }
+
+        async function clearAllData() {
+            if (!confirm('Delete ALL questions?')) return;
+            if (!confirm('Are you sure?')) return;
+            
+            try {
+                await Promise.all(questions.map(q => 
+                    window.firestore.deleteDoc(window.firestore.doc(window.db, 'questions', q.id))
+                ));
+                showToast('All cleared');
+                loadQuestions();
+            } catch (error) {
+                showToast('Error', 'error');
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const msg = document.getElementById('toastMessage');
+            
+            msg.textContent = message;
+            icon.className = type === 'error' 
+                ? 'fas fa-times-circle text-red-400 text-xl' 
+                : 'fas fa-check-circle text-emerald-400 text-xl';
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 3000);
+        }
+
+        // Event listeners
+        document.getElementById('editModal').addEventListener('click', function(e) {
+            if (e.target === this) closeEditModal();
+        });
     </script>
 </body>
 </html>
-
-
-
