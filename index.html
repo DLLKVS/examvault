@@ -51,151 +51,6 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
-
-    <!-- DEVTOOLS PROTECTION -->
-    <script>
-        (function() {
-            'use strict';
-            
-            let devtoolsOpen = false;
-            let warningCount = 0;
-            const maxWarnings = 3;
-
-            const disabledConsole = function() {
-                const noop = function() {};
-                const methods = ['log', 'info', 'warn', 'error', 'debug', 'table', 'trace', 'group', 'groupEnd', 'clear', 'count', 'assert', 'profile', 'profileEnd'];
-                methods.forEach(function(method) {
-                    window.console[method] = noop;
-                });
-            };
-
-            function detectDebugger() {
-                const threshold = 100;
-                const start = performance.now();
-                debugger;
-                const end = performance.now();
-                return (end - start) > threshold;
-            }
-
-            function detectWindowSize() {
-                const widthThreshold = window.outerWidth - window.innerWidth > 160;
-                const heightThreshold = window.outerHeight - window.innerHeight > 160;
-                return widthThreshold || heightThreshold;
-            }
-
-            function checkDevTools() {
-                if (detectDebugger()) {
-                    triggerProtection();
-                    return;
-                }
-
-                if (detectWindowSize()) {
-                    triggerProtection();
-                    return;
-                }
-
-                const start = performance.now();
-                eval('debugger');
-                const end = performance.now();
-                if (end - start > 100) {
-                    triggerProtection();
-                    return;
-                }
-            }
-
-            function triggerProtection() {
-                if (devtoolsOpen) return;
-                devtoolsOpen = true;
-                warningCount++;
-
-                if (warningCount >= maxWarnings) {
-                    document.body.innerHTML = `
-                        <div style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;display:flex;justify-content:center;align-items:center;flex-direction:column;color:#fff;font-family:Arial,sans-serif;z-index:999999;">
-                            <h1 style="color:#ff0000;font-size:48px;">⛔ ACCESS DENIED</h1>
-                            <p>Developer tools detected.</p>
-                        </div>
-                    `;
-                    setInterval(function() { while(true) {} }, 100);
-                    return;
-                }
-
-                const overlay = document.createElement('div');
-                overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.95);z-index:999999;display:flex;justify-content:center;align-items:center;';
-                overlay.innerHTML = `
-                    <div style="text-align:center;color:#fff;padding:40px;border:2px solid #ff0000;border-radius:10px;">
-                        <h1 style="color:#ff0000;">⚠️ WARNING ${warningCount}/${maxWarnings}</h1>
-                        <p>Developer tools detected!</p>
-                        <p style="color:#ff6666;">Close DevTools immediately</p>
-                        <button onclick="location.reload()" style="margin-top:20px;padding:10px 30px;background:#ff0000;color:#fff;border:none;border-radius:5px;cursor:pointer;">Continue</button>
-                    </div>
-                `;
-                document.body.appendChild(overlay);
-                
-                setTimeout(function() { devtoolsOpen = false; }, 2000);
-            }
-
-            function blockKeys(e) {
-                if (e.keyCode === 123) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    triggerProtection();
-                    return false;
-                }
-                
-                if (e.ctrlKey && e.shiftKey) {
-                    if (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        triggerProtection();
-                        return false;
-                    }
-                }
-                
-                if (e.ctrlKey && e.keyCode === 85 && !e.shiftKey && !e.altKey) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return false;
-                }
-                
-                if (e.metaKey && e.altKey) {
-                    if (e.keyCode === 73 || e.keyCode === 74) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        triggerProtection();
-                        return false;
-                    }
-                }
-                
-                return true;
-            }
-
-            function blockContextMenu(e) {
-                e.preventDefault();
-                return false;
-            }
-
-            function blockDragDrop(e) {
-                e.preventDefault();
-                return false;
-            }
-
-            function initProtection() {
-                disabledConsole();
-                document.addEventListener('keydown', blockKeys, true);
-                document.addEventListener('contextmenu', blockContextMenu, true);
-                document.addEventListener('dragover', blockDragDrop, true);
-                document.addEventListener('drop', blockDragDrop, true);
-                setInterval(checkDevTools, 500);
-                window.addEventListener('resize', checkDevTools, true);
-            }
-
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', initProtection, true);
-            } else {
-                initProtection();
-            }
-        })();
-    </script>
 </head>
 <body class="bg-slate-950 text-slate-200 min-h-screen overflow-x-hidden">
 
@@ -206,28 +61,31 @@
             getFirestore, collection, doc, setDoc, getDoc, getDocs, 
             addDoc, deleteDoc, updateDoc, onSnapshot, query, orderBy 
         } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { 
+            getAuth, signInWithEmailAndPassword, signOut 
+        } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
-       const firebaseConfig = {
-  apiKey: "AIzaSyCd-hIh7umnKhDBs3TW2hmrGo8VxylEUvA",
-  authDomain: "examvault-9a23b.firebaseapp.com",
-  projectId: "examvault-9a23b",
-  storageBucket: "examvault-9a23b.firebasestorage.app",
-  messagingSenderId: "757613710021",
-  appId: "1:757613710021:web:95386cabda4ff559b43eac"
-};
+        const firebaseConfig = {
+            apiKey: "AIzaSyCd-hIh7umnKhDBs3TW2hmrGo8VxylEUvA",
+            authDomain: "examvault-9a23b.firebaseapp.com",
+            projectId: "examvault-9a23b",
+            storageBucket: "examvault-9a23b.firebasestorage.app",
+            messagingSenderId: "757613710021",
+            appId: "1:757613710021:web:95386cabda4ff559b43eac"
+        };
 
-        let app, db;
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
         
-        try {
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            window.db = db;
-            window.firebaseLoaded = true;
-        } catch (error) {
-            window.firebaseError = error;
-        }
+        window.db = db;
+        window.auth = auth;
+        window.firebaseLoaded = true;
 
         window.firestore = { collection, doc, setDoc, getDoc, getDocs, addDoc, deleteDoc, updateDoc, onSnapshot, query, orderBy };
+        window.signInWithEmailAndPassword = signInWithEmailAndPassword;
+        window.signOut = signOut;
+        window.getAuth = getAuth;
     </script>
 
     <!-- Login Screen -->
@@ -249,7 +107,7 @@
             <div class="space-y-4">
                 <div class="relative">
                     <i class="fas fa-user absolute left-4 top-3.5 text-slate-500"></i>
-                    <input type="text" id="username" placeholder="Username" 
+                    <input type="text" id="username" placeholder="Username (admin or user)" 
                         class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-3 px-12 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
                 </div>
                 
@@ -259,9 +117,7 @@
                         class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-3 px-12 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
                 </div>
                 
-                <div id="loginError" class="text-red-400 text-sm hidden">
-                    <i class="fas fa-exclamation-circle mr-1"></i> Invalid credentials
-                </div>
+                <div id="loginError" class="text-red-400 text-sm hidden p-3 bg-red-500/10 rounded-lg"></div>
                 
                 <button onclick="login()" id="loginBtn" class="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2">
                     <span>Sign In</span>
@@ -270,1007 +126,223 @@
             
             <div class="mt-6 text-center text-xs text-slate-500">
                 <p>Default Credentials:</p>
-                <p class="font-mono text-slate-400">user / user123</p>
+                <p class="font-mono text-slate-400">admin / admin123 | user / user123</p>
             </div>
         </div>
     </div>
 
     <!-- Main Application -->
     <div id="app" class="hidden-section">
-        <!-- Sidebar -->
-        <aside class="fixed left-0 top-0 h-full w-64 glass z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300" id="sidebar">
-            <div class="p-6 border-b border-slate-800">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-graduation-cap text-white"></i>
-                    </div>
-                    <div>
-                        <h2 class="font-bold text-white">ExamVault</h2>
-                        <p id="userRoleDisplay" class="text-xs text-purple-400 uppercase tracking-wider">User</p>
-                    </div>
-                </div>
-                <div class="mt-3 flex items-center gap-2 text-xs text-emerald-400">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>Database Connected</span>
-                </div>
+        <!-- Header -->
+        <header class="glass sticky top-0 z-20 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+            <h1 class="text-xl font-semibold text-white">ExamVault Dashboard</h1>
+            <div class="flex items-center gap-4">
+                <span id="userRoleDisplay" class="text-purple-400 text-sm"></span>
+                <button onclick="logout()" class="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm">Logout</button>
             </div>
-            
-            <nav class="p-4 space-y-2">
-                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-purple-600/20 text-purple-300 border border-purple-500/30 transition-all">
-                    <i class="fas fa-home w-5"></i>
-                    <span>Dashboard</span>
-                </button>
-                
-                <button onclick="switchTab('questions')" id="nav-questions" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800/50 text-slate-400 hover:text-white transition-all">
-                    <i class="fas fa-question-circle w-5"></i>
-                    <span>Questions</span>
-                </button>
-                
-                <div id="adminOnlyNav" class="space-y-2 hidden">
-                    <button onclick="switchTab('upload')" id="nav-upload" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800/50 text-slate-400 hover:text-white transition-all">
-                        <i class="fas fa-cloud-upload-alt w-5"></i>
-                        <span>Upload</span>
-                    </button>
-                    <button onclick="switchTab('users')" id="nav-users" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800/50 text-slate-400 hover:text-white transition-all">
-                        <i class="fas fa-users w-5"></i>
-                        <span>Users</span>
-                    </button>
-                </div>
-                
-                <button onclick="switchTab('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800/50 text-slate-400 hover:text-white transition-all">
-                    <i class="fas fa-cog w-5"></i>
-                    <span>Settings</span>
-                </button>
-            </nav>
-            
-            <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-800">
-                <button onclick="logout()" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-500/10 text-red-400 hover:text-red-300 transition-all">
-                    <i class="fas fa-sign-out-alt w-5"></i>
-                    <span>Logout</span>
+        </header>
+
+        <main class="p-6 max-w-7xl mx-auto">
+            <div id="userInfo" class="mb-6 p-4 bg-slate-800 rounded-xl">
+                <p>Welcome, <span id="userName" class="font-bold"></span>!</p>
+                <p class="text-slate-400 text-sm">Role: <span id="userRole"></span></p>
+            </div>
+
+            <!-- Admin Only Section -->
+            <div id="adminSection" class="hidden-section mb-6">
+                <button onclick="addSampleQuestion()" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg mr-2">
+                    <i class="fas fa-plus mr-2"></i>Add Sample Question
                 </button>
             </div>
-        </aside>
 
-        <!-- MOBILE OVERLAY - FIXED -->
-        <div id="mobileOverlay" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden"></div>
-
-        <!-- Main Content -->
-        <main class="md:ml-64 min-h-screen transition-all duration-300">
-            <!-- Header -->
-            <header class="glass sticky top-0 z-20 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <button onclick="toggleSidebar()" class="md:hidden text-slate-400 hover:text-white">
-                        <i class="fas fa-bars text-xl"></i>
-                    </button>
-                    <h1 id="pageTitle" class="text-xl font-semibold text-white">Dashboard</h1>
+            <!-- Questions List -->
+            <div class="glass rounded-2xl p-6 border border-slate-800">
+                <h2 class="text-lg font-semibold mb-4">Questions</h2>
+                <div id="questionsList" class="space-y-3">
+                    <p class="text-slate-500">Loading...</p>
                 </div>
-                
-                <div class="flex items-center gap-4">
-                    <div class="hidden sm:flex items-center gap-2 text-sm text-slate-400 bg-slate-800/50 px-3 py-1.5 rounded-full">
-                        <i class="fas fa-database text-purple-400"></i>
-                        <span id="totalQuestionsBadge">0 Questions</span>
-                    </div>
-                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white font-semibold text-sm" id="userAvatar">
-                        U
-                    </div>
-                </div>
-            </header>
-
-            <!-- Content Container -->
-            <div class="p-6 max-w-7xl mx-auto">
-                
-                <!-- Dashboard Tab -->
-                <div id="tab-dashboard" class="tab-content animate-slide-in">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div class="glass rounded-2xl p-6 border border-slate-800">
-                            <div class="flex items-center justify-between mb-4">
-                                <div class="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                                    <i class="fas fa-question text-purple-400 text-xl"></i>
-                                </div>
-                                <span class="text-2xl font-bold text-white" id="statTotal">0</span>
-                            </div>
-                            <h3 class="text-slate-400 text-sm">Total Questions</h3>
-                        </div>
-                        
-                        <div class="glass rounded-2xl p-6 border border-slate-800">
-                            <div class="flex items-center justify-between mb-4">
-                                <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                                    <i class="fas fa-download text-blue-400 text-xl"></i>
-                                </div>
-                                <span class="text-2xl font-bold text-white" id="statDownloads">0</span>
-                            </div>
-                            <h3 class="text-slate-400 text-sm">Total Downloads</h3>
-                        </div>
-                        
-                        <div class="glass rounded-2xl p-6 border border-slate-800">
-                            <div class="flex items-center justify-between mb-4">
-                                <div class="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-                                    <i class="fas fa-users text-emerald-400 text-xl"></i>
-                                </div>
-                                <span class="text-2xl font-bold text-white" id="statUsers">0</span>
-                            </div>
-                            <h3 class="text-slate-400 text-sm">Active Users</h3>
-                        </div>
-                    </div>
-
-                    <div class="glass rounded-2xl p-6 border border-slate-800">
-                        <h3 class="text-lg font-semibold text-white mb-4">Recent Questions</h3>
-                        <div id="activityList" class="space-y-3">
-                            <p class="text-slate-500 text-center py-4">Loading...</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Questions Tab -->
-                <div id="tab-questions" class="tab-content hidden-section animate-slide-in">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                        <div class="relative flex-1 max-w-md w-full">
-                            <i class="fas fa-search absolute left-4 top-3.5 text-slate-500"></i>
-                            <input type="text" id="searchInput" placeholder="Search questions..." 
-                                class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-3 pl-12 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
-                                oninput="searchQuestions()">
-                        </div>
-                        
-                        <div class="flex gap-2">
-                            <div id="adminActions" class="hidden">
-                                <button onclick="deleteSelected()" class="hidden px-4 py-2 bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500/20 text-sm font-medium mr-2" id="deleteSelectedBtn">
-                                    <i class="fas fa-trash mr-2"></i>Delete Selected
-                                </button>
-                                <select id="filterSubject" onchange="filterBySubject()" class="bg-slate-800/50 border border-slate-700 rounded-xl py-2 px-4 text-white text-sm mr-2">
-                                    <option value="">All Subjects</option>
-                                </select>
-                            </div>
-                            <button onclick="downloadAll()" class="px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-xl hover:bg-emerald-500/20 text-sm font-medium">
-                                <i class="fas fa-download mr-2"></i>Download All
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="glass rounded-2xl border border-slate-800 overflow-hidden">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left">
-                                <thead class="bg-slate-800/50 text-slate-400 text-sm uppercase">
-                                    <tr>
-                                        <th class="p-4 w-12 admin-only"><input type="checkbox" id="selectAll" class="custom-checkbox rounded bg-slate-700 border-slate-600" onchange="toggleSelectAll()"></th>
-                                        <th class="p-4">Question</th>
-                                        <th class="p-4">Subject</th>
-                                        <th class="p-4">Type</th>
-                                        <th class="p-4">Date</th>
-                                        <th class="p-4 text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="questionsTableBody" class="divide-y divide-slate-800">
-                                    <tr><td colspan="6" class="p-8 text-center text-slate-500">Loading...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div id="emptyState" class="hidden p-12 text-center">
-                            <i class="fas fa-inbox text-slate-600 text-4xl mb-4"></i>
-                            <p class="text-slate-500">No questions found</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Upload Tab -->
-                <div id="tab-upload" class="tab-content hidden-section animate-slide-in">
-                    <div class="max-w-2xl mx-auto">
-                        <div class="glass rounded-2xl p-8 border border-slate-800">
-                            <div class="text-center mb-8">
-                                <div class="w-20 h-20 rounded-full bg-purple-500/10 flex items-center justify-center mx-auto mb-4">
-                                    <i class="fas fa-cloud-upload-alt text-purple-400 text-3xl"></i>
-                                </div>
-                                <h3 class="text-xl font-semibold text-white mb-2">Upload New Question</h3>
-                                <p class="text-slate-400 text-sm">Saved to cloud automatically</p>
-                            </div>
-
-                            <form id="uploadForm" class="space-y-6" onsubmit="event.preventDefault(); uploadQuestion();">
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-400 mb-2">Subject</label>
-                                    <select id="uploadSubject" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-3 px-4 text-white focus:border-purple-500">
-                                        <option value="Mathematics">Mathematics</option>
-                                        <option value="Physics">Physics</option>
-                                        <option value="Chemistry">Chemistry</option>
-                                        <option value="Biology">Biology</option>
-                                        <option value="Computer Science">Computer Science</option>
-                                        <option value="History">History</option>
-                                        <option value="Geography">Geography</option>
-                                        <option value="Literature">Literature</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-400 mb-2">Type</label>
-                                    <div class="grid grid-cols-3 gap-3">
-                                        <button type="button" onclick="selectType('mcq')" class="type-btn active px-4 py-3 rounded-xl border border-purple-500 bg-purple-500/20 text-purple-300 text-sm font-medium" data-type="mcq">MCQ</button>
-                                        <button type="button" onclick="selectType('essay')" class="type-btn px-4 py-3 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-400 text-sm font-medium" data-type="essay">Essay</button>
-                                        <button type="button" onclick="selectType('short')" class="type-btn px-4 py-3 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-400 text-sm font-medium" data-type="short">Short</button>
-                                    </div>
-                                    <input type="hidden" id="questionType" value="mcq">
-                                </div>
-
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-400 mb-2">Question</label>
-                                    <textarea id="questionText" rows="4" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-3 px-4 text-white placeholder-slate-500 focus:border-purple-500 resize-none" placeholder="Enter question..."></textarea>
-                                </div>
-
-                                <div id="mcqOptions" class="space-y-3">
-                                    <label class="block text-sm font-medium text-slate-400">Options</label>
-                                    <input type="text" placeholder="A" class="option-input w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2 px-4 text-white text-sm mb-2">
-                                    <input type="text" placeholder="B" class="option-input w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2 px-4 text-white text-sm mb-2">
-                                    <input type="text" placeholder="C" class="option-input w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2 px-4 text-white text-sm mb-2">
-                                    <input type="text" placeholder="D" class="option-input w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2 px-4 text-white text-sm">
-                                    <input type="text" placeholder="Correct Answer" class="correct-answer w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2 px-4 text-white text-sm mt-2">
-                                </div>
-
-                                <button type="submit" id="uploadBtn" class="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold py-3 rounded-xl">
-                                    <i class="fas fa-plus-circle mr-2"></i>Add to Cloud
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- User Management -->
-                <div id="tab-users" class="tab-content hidden-section animate-slide-in">
-                    <div class="glass rounded-2xl p-6 border border-slate-800">
-                        <div class="flex justify-between items-center mb-6">
-                            <h3 class="text-lg font-semibold text-white">User Management</h3>
-                            <button onclick="showAddUserModal()" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm">
-                                <i class="fas fa-user-plus mr-2"></i>Add User
-                            </button>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left">
-                                <thead class="bg-slate-800/50 text-slate-400 text-sm">
-                                    <tr>
-                                        <th class="p-4">Username</th>
-                                        <th class="p-4">Role</th>
-                                        <th class="p-4">Last Login</th>
-                                        <th class="p-4 text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="usersTableBody" class="divide-y divide-slate-800">
-                                    <tr><td colspan="4" class="p-8 text-center text-slate-500">Loading...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Settings Tab -->
-                <div id="tab-settings" class="tab-content hidden-section animate-slide-in">
-                    <div id="userSettingsPanel" class="max-w-2xl mx-auto space-y-6 hidden">
-                        <div class="glass rounded-2xl p-6 border border-slate-800">
-                            <h3 class="text-lg font-semibold text-white mb-4">My Profile</h3>
-                            <div class="flex items-center gap-4">
-                                <div class="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold" id="userSettingsAvatar">U</div>
-                                <div>
-                                    <p class="text-white font-semibold text-lg" id="userSettingsName">User</p>
-                                    <p class="text-sm text-blue-400">Student</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="glass rounded-2xl p-6 border border-slate-800">
-                            <h3 class="text-lg font-semibold text-white mb-4">Download</h3>
-                            <button onclick="downloadAll()" class="w-full flex items-center justify-center gap-3 p-4 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400">
-                                <i class="fas fa-download text-2xl"></i>
-                                <div class="text-left">
-                                    <p class="font-semibold">Download All Questions</p>
-                                    <p class="text-xs text-emerald-400/70" id="userQuestionCount">0 available</p>
-                                </div>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div id="adminSettingsPanel" class="max-w-2xl mx-auto space-y-6 hidden">
-                        <div class="glass rounded-2xl p-6 border border-slate-800">
-                            <h3 class="text-lg font-semibold text-white mb-4">Admin Profile</h3>
-                            <div class="flex items-center gap-4">
-                                <div class="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-red-600 flex items-center justify-center text-white text-2xl font-bold" id="adminSettingsAvatar">A</div>
-                                <div>
-                                    <p class="text-white font-semibold text-lg" id="adminSettingsName">Admin</p>
-                                    <p class="text-sm text-purple-400">Administrator</p>
-                                    <p class="text-xs text-emerald-400 mt-1"><i class="fas fa-check-circle mr-1"></i>Database Auto-Connected</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="glass rounded-2xl p-6 border border-slate-800">
-                            <h3 class="text-lg font-semibold text-white mb-4">Database Management</h3>
-                            <div class="space-y-3">
-                                <button onclick="exportAll()" class="w-full flex items-center justify-between p-4 rounded-xl bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700">
-                                    <div class="flex items-center gap-3">
-                                        <i class="fas fa-file-export text-blue-400 text-xl"></i>
-                                        <span class="text-white">Export All Data</span>
-                                    </div>
-                                    <i class="fas fa-chevron-right text-slate-500"></i>
-                                </button>
-                                <button onclick="clearAllData()" class="w-full flex items-center justify-between p-4 rounded-xl bg-slate-800/30 hover:bg-red-500/10 border border-slate-700 hover:border-red-500/30 group">
-                                    <div class="flex items-center gap-3">
-                                        <i class="fas fa-trash-alt text-red-400 text-xl"></i>
-                                        <span class="text-white">Clear All Questions</span>
-                                    </div>
-                                    <i class="fas fa-chevron-right text-slate-500"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
             </div>
         </main>
     </div>
 
-    <!-- Edit Modal -->
-    <div id="editModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-        <div class="glass rounded-2xl w-full max-w-lg p-6 animate-slide-in border border-purple-500/30">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-semibold text-white">Edit Question</h3>
-                <button onclick="closeEditModal()" class="text-slate-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
-            </div>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm text-slate-400 mb-2">Question</label>
-                    <textarea id="editQuestionText" rows="3" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-2 px-4 text-white focus:border-purple-500"></textarea>
-                </div>
-                <div>
-                    <label class="block text-sm text-slate-400 mb-2">Subject</label>
-                    <select id="editSubject" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl py-2 px-4 text-white focus:border-purple-500">
-                        <option>Mathematics</option>
-                        <option>Physics</option>
-                        <option>Chemistry</option>
-                        <option>Biology</option>
-                        <option>Computer Science</option>
-                        <option>History</option>
-                        <option>Geography</option>
-                        <option>Literature</option>
-                    </select>
-                </div>
-                <div class="flex justify-end gap-3 pt-4">
-                    <button onclick="closeEditModal()" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white">Cancel</button>
-                    <button onclick="saveEdit()" class="px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg">Save</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Toast -->
-    <div id="toast" class="fixed bottom-6 right-6 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
-        <div class="glass rounded-xl px-6 py-4 border border-purple-500/30 flex items-center gap-3">
-            <i id="toastIcon" class="fas fa-check-circle text-emerald-400 text-xl"></i>
-            <span id="toastMessage" class="text-white font-medium">Success</span>
-        </div>
-    </div>
-
     <script>
         let currentUser = null;
-        let questions = [];
-        let users = [];
-        let selectedQuestions = new Set();
-        let editingId = null;
-
-        const demoUsers = [
-            { id: '1', username: 'admin', password: 'admin123', role: 'admin', lastLogin: new Date().toISOString() },
-            { id: '2', username: 'user', password: 'user123', role: 'user', lastLogin: new Date().toISOString() }
-        ];
-
-        const demoQuestions = [
-            { id: '1', subject: 'Mathematics', type: 'mcq', text: 'What is 2+2?', options: ['3', '4', '5', '6'], answer: '4', date: new Date().toISOString(), downloads: 0 },
-            { id: '2', subject: 'Physics', type: 'short', text: 'Define gravity.', date: new Date().toISOString(), downloads: 0 }
-        ];
 
         window.onload = async function() {
-            await new Promise(r => setTimeout(r, 500));
-            
             const statusEl = document.getElementById('connectionStatus');
             
-            if (window.firebaseLoaded) {
-                statusEl.innerHTML = '<i class="fas fa-check-circle text-emerald-400"></i><span class="text-emerald-400">Connected</span>';
-                statusEl.className = 'mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs';
-                
-                await checkFirstTimeSetup();
-                
-                const session = localStorage.getItem('examvault_session');
-                if (session) {
-                    const userData = JSON.parse(session);
-                    const userDoc = await window.firestore.getDoc(window.firestore.doc(window.db, 'users', userData.id));
+            if (!window.firebaseLoaded) {
+                statusEl.innerHTML = '<span class="text-red-400">❌ Failed</span>';
+                return;
+            }
+            
+            statusEl.innerHTML = '<span class="text-emerald-400">✅ Connected</span>';
+            
+            // Check existing session
+            const session = localStorage.getItem('examvault_session');
+            if (session) {
+                try {
+                    const { uid } = JSON.parse(session);
+                    const userDoc = await window.firestore.getDoc(window.firestore.doc(window.db, 'users', uid));
                     if (userDoc.exists()) {
-                        currentUser = { id: userDoc.id, ...userDoc.data() };
+                        currentUser = { uid, ...userDoc.data() };
                         showApp();
                     }
+                } catch (e) {
+                    console.error('Session error:', e);
+                    localStorage.removeItem('examvault_session');
                 }
-            } else {
-                statusEl.innerHTML = '<i class="fas fa-times-circle text-red-400"></i><span class="text-red-400">Failed</span>';
-                statusEl.className = 'mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-xs';
             }
         };
 
-        async function checkFirstTimeSetup() {
-            try {
-                const usersSnapshot = await window.firestore.getDocs(window.firestore.collection(window.db, 'users'));
-                if (usersSnapshot.empty) {
-                    for (const user of demoUsers) {
-                        await window.firestore.setDoc(window.firestore.doc(window.db, 'users', user.id), user);
-                    }
-                    for (const q of demoQuestions) {
-                        await window.firestore.addDoc(window.firestore.collection(window.db, 'questions'), q);
-                    }
-                }
-            } catch (e) { console.error('Setup error:', e); }
-        }
-
         async function login() {
-            const username = document.getElementById('username').value;
+            const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
             const btn = document.getElementById('loginBtn');
+            const errorDiv = document.getElementById('loginError');
             
             btn.innerHTML = '<div class="loading-spinner w-5 h-5 border-2"></div>';
+            errorDiv.classList.add('hidden');
             
             try {
-                const snapshot = await window.firestore.getDocs(window.firestore.collection(window.db, 'users'));
-                let foundUser = null;
-                snapshot.forEach(doc => {
-                    const user = doc.data();
-                    if (user.username === username && user.password === password) {
-                        foundUser = { id: doc.id, ...user };
-                    }
-                });
+                const email = `${username}@examvault.com`;
                 
-                if (foundUser) {
-                    currentUser = foundUser;
-                                       await window.firestore.updateDoc(window.firestore.doc(window.db, 'users', foundUser.id), {
-                        lastLogin: new Date().toISOString()
-                    });
-                    localStorage.setItem('examvault_session', JSON.stringify({ id: foundUser.id }));
-                    showApp();
+                // Sign in with Firebase Auth
+                const userCredential = await window.signInWithEmailAndPassword(window.auth, email, password);
+                const uid = userCredential.user.uid;
+                
+                console.log('Auth success, UID:', uid);
+                
+                // Get user data from Firestore using UID
+                const userRef = window.firestore.doc(window.db, 'users', uid);
+                const userDoc = await window.firestore.getDoc(userRef);
+                
+                if (userDoc.exists()) {
+                    currentUser = { uid, ...userDoc.data() };
+                    console.log('User data found:', currentUser);
                 } else {
-                    document.getElementById('loginError').classList.remove('hidden');
-                    btn.innerHTML = '<span>Sign In</span>';
+                    // Create user doc if not exists
+                    console.log('Creating user doc...');
+                    currentUser = {
+                        uid: uid,
+                        username: username,
+                        role: username === 'admin' ? 'admin' : 'user',
+                        email: email,
+                        createdAt: new Date().toISOString()
+                    };
+                    await window.firestore.setDoc(userRef, currentUser);
                 }
+                
+                localStorage.setItem('examvault_session', JSON.stringify({ uid }));
+                showApp();
+                
             } catch (error) {
                 console.error('Login error:', error);
-                showToast('Connection error', 'error');
                 btn.innerHTML = '<span>Sign In</span>';
+                errorDiv.classList.remove('hidden');
+                
+                switch(error.code) {
+                    case 'auth/user-not-found':
+                        errorDiv.textContent = 'User not found in Firebase Auth. Check Authentication > Users';
+                        break;
+                    case 'auth/wrong-password':
+                        errorDiv.textContent = 'Wrong password';
+                        break;
+                    case 'auth/invalid-email':
+                        errorDiv.textContent = 'Invalid email';
+                        break;
+                    case 'auth/too-many-requests':
+                        errorDiv.textContent = 'Too many attempts. Try again later';
+                        break;
+                    default:
+                        errorDiv.textContent = error.message;
+                }
             }
         }
 
         function showApp() {
             document.getElementById('loginScreen').classList.add('hidden-section');
             document.getElementById('app').classList.remove('hidden-section');
-            document.getElementById('userRoleDisplay').textContent = currentUser.role;
-            document.getElementById('userAvatar').textContent = currentUser.username.charAt(0).toUpperCase();
+            
+            document.getElementById('userName').textContent = currentUser.username;
+            document.getElementById('userRole').textContent = currentUser.role;
+            document.getElementById('userRoleDisplay').textContent = currentUser.role.toUpperCase();
             
             if (currentUser.role === 'admin') {
-                document.getElementById('adminOnlyNav').classList.remove('hidden');
-                document.getElementById('adminActions').classList.remove('hidden');
-                document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
-                document.getElementById('adminSettingsPanel').classList.remove('hidden');
-                document.getElementById('userSettingsAvatar').textContent = currentUser.username.charAt(0).toUpperCase();
-                document.getElementById('adminSettingsName').textContent = currentUser.username;
-            } else {
-                document.getElementById('userSettingsPanel').classList.remove('hidden');
-                document.getElementById('userSettingsAvatar').textContent = currentUser.username.charAt(0).toUpperCase();
-                document.getElementById('userSettingsName').textContent = currentUser.username;
-                document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
+                document.getElementById('adminSection').classList.remove('hidden-section');
             }
             
             loadQuestions();
-            loadUsers();
-            updateStats();
         }
 
-        function logout() {
+        async function logout() {
+            try {
+                await window.signOut(window.auth);
+            } catch (e) {}
             localStorage.removeItem('examvault_session');
-            currentUser = null;
             location.reload();
-        }
-
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden-section'));
-            document.getElementById('tab-' + tabName).classList.remove('hidden-section');
-            document.querySelectorAll('nav button').forEach(btn => {
-                btn.classList.remove('bg-purple-600/20', 'text-purple-300', 'border-purple-500/30');
-                btn.classList.add('text-slate-400');
-            });
-            document.getElementById('nav-' + tabName).classList.add('bg-purple-600/20', 'text-purple-300', 'border-purple-500/30');
-            document.getElementById('nav-' + tabName).classList.remove('text-slate-400');
-            
-            const titles = {
-                'dashboard': 'Dashboard',
-                'questions': 'Question Bank',
-                'upload': 'Upload Question',
-                'users': 'User Management',
-                'settings': 'Settings'
-            };
-            document.getElementById('pageTitle').textContent = titles[tabName] || tabName;
-            
-            if (window.innerWidth < 768) {
-                toggleSidebar();
-            }
-        }
-
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('mobileOverlay');
-            sidebar.classList.toggle('-translate-x-full');
-            overlay.classList.toggle('hidden');
         }
 
         async function loadQuestions() {
             try {
-                const snapshot = await window.firestore.getDocs(window.firestore.query(
-                    window.firestore.collection(window.db, 'questions'),
-                    window.firestore.orderBy('date', 'desc')
-                ));
-                questions = [];
+                const snapshot = await window.firestore.getDocs(
+                    window.firestore.collection(window.db, 'questions')
+                );
+                
+                const questions = [];
                 snapshot.forEach(doc => {
                     questions.push({ id: doc.id, ...doc.data() });
                 });
-                renderQuestions();
-                updateSubjectFilter();
-                updateStats();
-            } catch (error) {
-                console.error('Error loading questions:', error);
-            }
-        }
-
-        function renderQuestions(filtered = questions) {
-            const tbody = document.getElementById('questionsTableBody');
-            const emptyState = document.getElementById('emptyState');
-            
-            if (filtered.length === 0) {
-                tbody.innerHTML = '';
-                emptyState.classList.remove('hidden');
-                return;
-            }
-            
-            emptyState.classList.add('hidden');
-            tbody.innerHTML = filtered.map(q => `
-                <tr class="hover:bg-slate-800/30 transition-colors">
-                    <td class="p-4 admin-only">
-                        <input type="checkbox" class="custom-checkbox rounded bg-slate-700 border-slate-600" 
-                            onchange="toggleSelection('${q.id}')" 
-                            ${selectedQuestions.has(q.id) ? 'checked' : ''}>
-                    </td>
-                    <td class="p-4">
-                        <div class="text-white font-medium truncate max-w-xs">${q.text}</div>
-                    </td>
-                    <td class="p-4">
-                        <span class="px-2 py-1 rounded-full bg-slate-700 text-slate-300 text-xs">${q.subject}</span>
-                    </td>
-                    <td class="p-4">
-                        <span class="px-2 py-1 rounded-full ${getTypeColor(q.type)} text-xs capitalize">${q.type}</span>
-                    </td>
-                    <td class="p-4 text-slate-400 text-sm">
-                        ${new Date(q.date).toLocaleDateString()}
-                    </td>
-                    <td class="p-4 text-right">
-                        <button onclick="downloadQuestion('${q.id}')" class="text-emerald-400 hover:text-emerald-300 mr-3" title="Download">
-                            <i class="fas fa-download"></i>
-                        </button>
-                        ${currentUser.role === 'admin' ? `
-                            <button onclick="editQuestion('${q.id}')" class="text-blue-400 hover:text-blue-300 mr-3" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button onclick="deleteQuestion('${q.id}')" class="text-red-400 hover:text-red-300" title="Delete">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        ` : ''}
-                    </td>
-                </tr>
-            `).join('');
-            
-            document.getElementById('totalQuestionsBadge').textContent = `${questions.length} Questions`;
-            document.getElementById('userQuestionCount').textContent = `${questions.length} available`;
-        }
-
-        function getTypeColor(type) {
-            const colors = {
-                'mcq': 'bg-blue-500/20 text-blue-300',
-                'essay': 'bg-purple-500/20 text-purple-300',
-                'short': 'bg-emerald-500/20 text-emerald-300'
-            };
-            return colors[type] || 'bg-slate-700 text-slate-300';
-        }
-
-        function updateSubjectFilter() {
-            const subjects = [...new Set(questions.map(q => q.subject))];
-            const select = document.getElementById('filterSubject');
-            const currentValue = select.value;
-            select.innerHTML = '<option value="">All Subjects</option>' + 
-                subjects.map(s => `<option value="${s}">${s}</option>`).join('');
-            select.value = currentValue;
-        }
-
-        function searchQuestions() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = questions.filter(q => 
-                q.text.toLowerCase().includes(searchTerm) ||
-                q.subject.toLowerCase().includes(searchTerm)
-            );
-            renderQuestions(filtered);
-        }
-
-        function filterBySubject() {
-            const subject = document.getElementById('filterSubject').value;
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            let filtered = questions;
-            
-            if (subject) {
-                filtered = filtered.filter(q => q.subject === subject);
-            }
-            if (searchTerm) {
-                filtered = filtered.filter(q => q.text.toLowerCase().includes(searchTerm));
-            }
-            renderQuestions(filtered);
-        }
-
-        function toggleSelection(id) {
-            if (selectedQuestions.has(id)) {
-                selectedQuestions.delete(id);
-            } else {
-                selectedQuestions.add(id);
-            }
-            updateDeleteButton();
-        }
-
-        function toggleSelectAll() {
-            const checkboxes = document.querySelectorAll('#questionsTableBody input[type="checkbox"]');
-            const allChecked = document.getElementById('selectAll').checked;
-            
-            if (allChecked) {
-                questions.forEach(q => selectedQuestions.add(q.id));
-            } else {
-                selectedQuestions.clear();
-            }
-            renderQuestions();
-            updateDeleteButton();
-        }
-
-        function updateDeleteButton() {
-            const btn = document.getElementById('deleteSelectedBtn');
-            if (selectedQuestions.size > 0) {
-                btn.classList.remove('hidden');
-                btn.innerHTML = `<i class="fas fa-trash mr-2"></i>Delete Selected (${selectedQuestions.size})`;
-            } else {
-                btn.classList.add('hidden');
-            }
-        }
-
-        async function deleteSelected() {
-            if (!confirm(`Delete ${selectedQuestions.size} selected questions?`)) return;
-            
-            try {
-                for (const id of selectedQuestions) {
-                    await window.firestore.deleteDoc(window.firestore.doc(window.db, 'questions', id));
+                
+                const listEl = document.getElementById('questionsList');
+                if (questions.length === 0) {
+                    listEl.innerHTML = '<p class="text-slate-500">No questions yet</p>';
+                } else {
+                    listEl.innerHTML = questions.map(q => `
+                        <div class="p-4 bg-slate-800 rounded-lg flex justify-between items-center">
+                            <div>
+                                <p class="font-semibold">${q.subject || 'No Subject'}</p>
+                                <p class="text-slate-400 text-sm">${q.text?.substring(0, 50)}...</p>
+                            </div>
+                            ${currentUser.role === 'admin' ? `
+                                <button onclick="deleteQuestion('${q.id}')" class="text-red-400 hover:text-red-300">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    `).join('');
                 }
-                selectedQuestions.clear();
-                showToast('Questions deleted successfully');
-                loadQuestions();
             } catch (error) {
-                showToast('Error deleting questions', 'error');
+                console.error('Error:', error);
+                document.getElementById('questionsList').innerHTML = `<p class="text-red-400">Error: ${error.message}</p>`;
+            }
+        }
+
+        async function addSampleQuestion() {
+            try {
+                await window.firestore.addDoc(window.firestore.collection(window.db, 'questions'), {
+                    subject: 'Mathematics',
+                    text: 'What is 2+2?',
+                    answer: '4',
+                    createdAt: new Date().toISOString(),
+                    createdBy: currentUser.uid
+                });
+                loadQuestions();
+                alert('Question added!');
+            } catch (error) {
+                alert('Error: ' + error.message);
             }
         }
 
         async function deleteQuestion(id) {
-            if (!confirm('Delete this question?')) return;
-            
+            if (!confirm('Delete?')) return;
             try {
                 await window.firestore.deleteDoc(window.firestore.doc(window.db, 'questions', id));
-                showToast('Question deleted');
                 loadQuestions();
             } catch (error) {
-                showToast('Error deleting question', 'error');
+                alert('Error: ' + error.message);
             }
         }
-
-        function selectType(type) {
-            document.querySelectorAll('.type-btn').forEach(btn => {
-                btn.classList.remove('active', 'border-purple-500', 'bg-purple-500/20', 'text-purple-300');
-                btn.classList.add('border-slate-700', 'bg-slate-800/50', 'text-slate-400');
-            });
-            document.querySelector(`[data-type="${type}"]`).classList.add('active', 'border-purple-500', 'bg-purple-500/20', 'text-purple-300');
-            document.querySelector(`[data-type="${type}"]`).classList.remove('border-slate-700', 'bg-slate-800/50', 'text-slate-400');
-            document.getElementById('questionType').value = type;
-            
-            const mcqOptions = document.getElementById('mcqOptions');
-            if (type === 'mcq') {
-                mcqOptions.classList.remove('hidden');
-            } else {
-                mcqOptions.classList.add('hidden');
-            }
-        }
-
-        async function uploadQuestion() {
-            const subject = document.getElementById('uploadSubject').value;
-            const type = document.getElementById('questionType').value;
-            const text = document.getElementById('questionText').value;
-            
-            if (!text.trim()) {
-                showToast('Please enter a question', 'error');
-                return;
-            }
-            
-            const btn = document.getElementById('uploadBtn');
-            btn.innerHTML = '<div class="loading-spinner w-5 h-5 border-2 inline-block mr-2"></div>Uploading...';
-            btn.disabled = true;
-            
-            try {
-                const questionData = {
-                    subject,
-                    type,
-                    text,
-                    date: new Date().toISOString(),
-                    downloads: 0
-                };
-                
-                if (type === 'mcq') {
-                    const options = Array.from(document.querySelectorAll('.option-input')).map(input => input.value);
-                    const answer = document.querySelector('.correct-answer').value;
-                    questionData.options = options.filter(o => o.trim());
-                    questionData.answer = answer;
-                }
-                
-                await window.firestore.addDoc(window.firestore.collection(window.db, 'questions'), questionData);
-                showToast('Question uploaded successfully');
-                document.getElementById('uploadForm').reset();
-                selectType('mcq');
-                switchTab('questions');
-            } catch (error) {
-                showToast('Error uploading question', 'error');
-            } finally {
-                btn.innerHTML = '<i class="fas fa-plus-circle mr-2"></i>Add to Cloud';
-                btn.disabled = false;
-            }
-        }
-
-        function editQuestion(id) {
-            const question = questions.find(q => q.id === id);
-            if (!question) return;
-            
-            editingId = id;
-            document.getElementById('editQuestionText').value = question.text;
-            document.getElementById('editSubject').value = question.subject;
-            document.getElementById('editModal').classList.remove('hidden');
-        }
-
-        function closeEditModal() {
-            document.getElementById('editModal').classList.add('hidden');
-            editingId = null;
-        }
-
-        async function saveEdit() {
-            if (!editingId) return;
-            
-            try {
-                await window.firestore.updateDoc(window.firestore.doc(window.db, 'questions', editingId), {
-                    text: document.getElementById('editQuestionText').value,
-                    subject: document.getElementById('editSubject').value
-                });
-                showToast('Question updated');
-                closeEditModal();
-                loadQuestions();
-            } catch (error) {
-                showToast('Error updating question', 'error');
-            }
-        }
-
-        async function loadUsers() {
-            if (currentUser.role !== 'admin') return;
-            
-            try {
-                const snapshot = await window.firestore.getDocs(window.firestore.collection(window.db, 'users'));
-                users = [];
-                snapshot.forEach(doc => {
-                    users.push({ id: doc.id, ...doc.data() });
-                });
-                renderUsers();
-            } catch (error) {
-                console.error('Error loading users:', error);
-            }
-        }
-
-        function renderUsers() {
-            const tbody = document.getElementById('usersTableBody');
-            tbody.innerHTML = users.map(u => `
-                <tr class="hover:bg-slate-800/30">
-                    <td class="p-4 text-white">${u.username}</td>
-                    <td class="p-4">
-                        <span class="px-2 py-1 rounded-full ${u.role === 'admin' ? 'bg-purple-500/20 text-purple-300' : 'bg-blue-500/20 text-blue-300'} text-xs capitalize">
-                            ${u.role}
-                        </span>
-                    </td>
-                    <td class="p-4 text-slate-400 text-sm">
-                        ${u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}
-                    </td>
-                    <td class="p-4 text-right">
-                        ${u.id !== currentUser.id ? `
-                            <button onclick="deleteUser('${u.id}')" class="text-red-400 hover:text-red-300">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        ` : '<span class="text-slate-600 text-xs">You</span>'}
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        async function deleteUser(id) {
-            if (!confirm('Delete this user?')) return;
-            
-            try {
-                await window.firestore.deleteDoc(window.firestore.doc(window.db, 'users', id));
-                showToast('User deleted');
-                loadUsers();
-            } catch (error) {
-                showToast('Error deleting user', 'error');
-            }
-        }
-
-        function showAddUserModal() {
-            const username = prompt('Enter username:');
-            if (!username) return;
-            
-            const password = prompt('Enter password:');
-            if (!password) return;
-            
-            const role = confirm('Make this user an admin? Click Cancel for regular user.') ? 'admin' : 'user';
-            
-            addUser(username, password, role);
-        }
-
-        async function addUser(username, password, role) {
-            try {
-                await window.firestore.addDoc(window.firestore.collection(window.db, 'users'), {
-                    username,
-                    password,
-                    role,
-                    lastLogin: null
-                });
-                showToast('User added successfully');
-                loadUsers();
-            } catch (error) {
-                showToast('Error adding user', 'error');
-            }
-        }
-
-        function downloadQuestion(id) {
-            const question = questions.find(q => q.id === id);
-            if (!question) return;
-            
-            const content = formatQuestionForDownload(question);
-            downloadFile(content, `question_${id}.txt`);
-            
-            window.firestore.updateDoc(window.firestore.doc(window.db, 'questions', id), {
-                downloads: (question.downloads || 0) + 1
-            });
-            updateStats();
-        }
-
-        function downloadAll() {
-            if (questions.length === 0) {
-                showToast('No questions to download', 'error');
-                return;
-            }
-            
-            const content = questions.map(q => formatQuestionForDownload(q)).join('\n\n' + '='.repeat(50) + '\n\n');
-            downloadFile(content, 'all_questions.txt');
-            showToast('All questions downloaded');
-        }
-
-        function formatQuestionForDownload(q) {
-            let content = `Subject: ${q.subject}\n`;
-            content += `Type: ${q.type.toUpperCase()}\n`;
-            content += `Date: ${new Date(q.date).toLocaleString()}\n\n`;
-            content += `Question: ${q.text}\n`;
-            
-            if (q.type === 'mcq' && q.options) {
-                content += '\nOptions:\n';
-                q.options.forEach((opt, idx) => {
-                    content += `${String.fromCharCode(65 + idx)}. ${opt}\n`;
-                });
-                if (q.answer) content += `\nCorrect Answer: ${q.answer}`;
-            }
-            
-            return content;
-        }
-
-        function downloadFile(content, filename) {
-            const blob = new Blob([content], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        async function updateStats() {
-            document.getElementById('statTotal').textContent = questions.length;
-            document.getElementById('statDownloads').textContent = questions.reduce((sum, q) => sum + (q.downloads || 0), 0);
-            
-            try {
-                const usersSnapshot = await window.firestore.getDocs(window.firestore.collection(window.db, 'users'));
-                document.getElementById('statUsers').textContent = usersSnapshot.size;
-            } catch (e) {
-                document.getElementById('statUsers').textContent = users.length;
-            }
-            
-            const recentQuestions = questions.slice(0, 5);
-            const activityList = document.getElementById('activityList');
-            
-            if (recentQuestions.length === 0) {
-                activityList.innerHTML = '<p class="text-slate-500 text-center py-4">No recent activity</p>';
-            } else {
-                activityList.innerHTML = recentQuestions.map(q => `
-                    <div class="flex items-center justify-between p-3 rounded-lg bg-slate-800/30">
-                        <div>
-                            <p class="text-white text-sm truncate max-w-xs">${q.text}</p>
-                            <p class="text-xs text-slate-500">${q.subject} • ${new Date(q.date).toLocaleDateString()}</p>
-                        </div>
-                        <span class="text-xs px-2 py-1 rounded-full ${getTypeColor(q.type)} capitalize">${q.type}</span>
-                    </div>
-                `).join('');
-            }
-        }
-
-        function exportAll() {
-            const data = {
-                questions: questions,
-                users: users,
-                exportDate: new Date().toISOString()
-            };
-            downloadFile(JSON.stringify(data, null, 2), 'examvault_backup.json');
-            showToast('Data exported');
-        }
-
-        async function clearAllData() {
-            if (!confirm('WARNING: This will delete ALL questions. This cannot be undone. Continue?')) return;
-            if (!confirm('Are you absolutely sure? All questions will be permanently deleted.')) return;
-            
-            try {
-                const batch = [];
-                questions.forEach(q => {
-                    batch.push(window.firestore.deleteDoc(window.firestore.doc(window.db, 'questions', q.id)));
-                });
-                await Promise.all(batch);
-                showToast('All questions cleared');
-                loadQuestions();
-            } catch (error) {
-                showToast('Error clearing data', 'error');
-            }
-        }
-
-        function showToast(message, type = 'success') {
-            const toast = document.getElementById('toast');
-            const icon = document.getElementById('toastIcon');
-            const msg = document.getElementById('toastMessage');
-            
-            msg.textContent = message;
-            if (type === 'error') {
-                icon.className = 'fas fa-times-circle text-red-400 text-xl';
-            } else {
-                icon.className = 'fas fa-check-circle text-emerald-400 text-xl';
-            }
-            
-            toast.classList.remove('translate-y-20', 'opacity-0');
-            setTimeout(() => {
-                toast.classList.add('translate-y-20', 'opacity-0');
-            }, 3000);
-        }
-
-        // Close modal on outside click
-        document.getElementById('editModal').addEventListener('click', function(e) {
-            if (e.target === this) closeEditModal();
-        });
-
-        // Mobile overlay click
-        document.getElementById('mobileOverlay').addEventListener('click', toggleSidebar);
     </script>
 </body>
 </html>
-
-
-
