@@ -573,32 +573,34 @@
             }
         }
 
-        function showApp() {
-            document.getElementById('loginScreen').classList.add('hidden-section');
-            document.getElementById('app').classList.remove('hidden-section');
-            document.getElementById('userRoleDisplay').textContent = currentUser.role;
-            document.getElementById('userAvatar').textContent = currentUser.username.charAt(0).toUpperCase();
-            
-            if (currentUser.role === 'admin') {
-                // Show admin elements
-                document.getElementById('adminOnlyNav').classList.remove('hidden-section');
-                document.getElementById('adminActions').classList.remove('hidden-section');
-                document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
-                document.getElementById('adminSettingsPanel').classList.remove('hidden-section');
-                document.getElementById('adminSettingsAvatar').textContent = currentUser.username.charAt(0).toUpperCase();
-                document.getElementById('adminSettingsName').textContent = currentUser.username;
-            } else {
-                // Show user elements
-                document.getElementById('userSettingsPanel').classList.remove('hidden-section');
-                document.getElementById('userSettingsAvatar').textContent = currentUser.username.charAt(0).toUpperCase();
-                document.getElementById('userSettingsName').textContent = currentUser.username;
-            }
-            
-            loadQuestions();
-            if (currentUser.role === 'admin') loadUsers();
-            updateStats();
-        }
-
+      function showApp() {
+    document.getElementById('loginScreen').classList.add('hidden-section');
+    document.getElementById('app').classList.remove('hidden-section');
+    
+    // Safe username access
+    const username = currentUser.username || currentUser.email?.split('@')[0] || 'User';
+    const firstLetter = username.charAt(0).toUpperCase();
+    
+    document.getElementById('userRoleDisplay').textContent = currentUser.role || 'user';
+    document.getElementById('userAvatar').textContent = firstLetter;
+    
+    if (currentUser.role === 'admin') {
+        document.getElementById('adminOnlyNav').classList.remove('hidden-section');
+        document.getElementById('adminActions').classList.remove('hidden-section');
+        document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+        document.getElementById('adminSettingsPanel').classList.remove('hidden-section');
+        document.getElementById('adminSettingsAvatar').textContent = firstLetter;
+        document.getElementById('adminSettingsName').textContent = username;
+    } else {
+        document.getElementById('userSettingsPanel').classList.remove('hidden-section');
+        document.getElementById('userSettingsAvatar').textContent = firstLetter;
+        document.getElementById('userSettingsName').textContent = username;
+    }
+    
+    loadQuestions();
+    if (currentUser.role === 'admin') loadUsers();
+    updateStats();
+}
         async function logout() {
             try {
                 await window.signOut(window.auth);
@@ -1078,5 +1080,6 @@
     </script>
 </body>
 </html>
+
 
 
