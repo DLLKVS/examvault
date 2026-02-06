@@ -50,188 +50,152 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* Anti-devtools overlay */
-        #securityOverlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: #000;
-            z-index: 999999;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-        }
     </style>
 
-    <!-- DEVTOOLS PROTECTION - Must be first -->
-  <!-- DEVTOOLS PROTECTION - Fixed to allow typing -->
-<script>
-    (function() {
-        'use strict';
-        
-        let devtoolsOpen = false;
-        let warningCount = 0;
-        const maxWarnings = 3;
+    <!-- DEVTOOLS PROTECTION -->
+    <script>
+        (function() {
+            'use strict';
+            
+            let devtoolsOpen = false;
+            let warningCount = 0;
+            const maxWarnings = 3;
 
-        // Disable console methods
-        const disabledConsole = function() {
-            const noop = function() {};
-            const methods = ['log', 'info', 'warn', 'error', 'debug', 'table', 'trace', 'group', 'groupEnd', 'clear', 'count', 'assert', 'profile', 'profileEnd'];
-            methods.forEach(function(method) {
-                window.console[method] = noop;
-            });
-        };
+            const disabledConsole = function() {
+                const noop = function() {};
+                const methods = ['log', 'info', 'warn', 'error', 'debug', 'table', 'trace', 'group', 'groupEnd', 'clear', 'count', 'assert', 'profile', 'profileEnd'];
+                methods.forEach(function(method) {
+                    window.console[method] = noop;
+                });
+            };
 
-        // Detect DevTools via debugger timing
-        function detectDebugger() {
-            const threshold = 100;
-            const start = performance.now();
-            debugger;
-            const end = performance.now();
-            return (end - start) > threshold;
-        }
-
-        // Detect via window size changes (undocked devtools)
-        function detectWindowSize() {
-            const widthThreshold = window.outerWidth - window.innerWidth > 160;
-            const heightThreshold = window.outerHeight - window.innerHeight > 160;
-            return widthThreshold || heightThreshold;
-        }
-
-        // Main detection loop
-        function checkDevTools() {
-            if (detectDebugger()) {
-                triggerProtection();
-                return;
+            function detectDebugger() {
+                const threshold = 100;
+                const start = performance.now();
+                debugger;
+                const end = performance.now();
+                return (end - start) > threshold;
             }
 
-            if (detectWindowSize()) {
-                triggerProtection();
-                return;
+            function detectWindowSize() {
+                const widthThreshold = window.outerWidth - window.innerWidth > 160;
+                const heightThreshold = window.outerHeight - window.innerHeight > 160;
+                return widthThreshold || heightThreshold;
             }
 
-            // Performance timing check
-            const start = performance.now();
-            eval('debugger');
-            const end = performance.now();
-            if (end - start > 100) {
-                triggerProtection();
-                return;
+            function checkDevTools() {
+                if (detectDebugger()) {
+                    triggerProtection();
+                    return;
+                }
+
+                if (detectWindowSize()) {
+                    triggerProtection();
+                    return;
+                }
+
+                const start = performance.now();
+                eval('debugger');
+                const end = performance.now();
+                if (end - start > 100) {
+                    triggerProtection();
+                    return;
+                }
             }
-        }
 
-        // Protection trigger
-        function triggerProtection() {
-            if (devtoolsOpen) return;
-            devtoolsOpen = true;
-            warningCount++;
+            function triggerProtection() {
+                if (devtoolsOpen) return;
+                devtoolsOpen = true;
+                warningCount++;
 
-            if (warningCount >= maxWarnings) {
-                document.body.innerHTML = `
-                    <div style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;display:flex;justify-content:center;align-items:center;flex-direction:column;color:#fff;font-family:Arial,sans-serif;z-index:999999;">
-                        <h1 style="color:#ff0000;font-size:48px;">⛔ ACCESS DENIED</h1>
-                        <p>Developer tools detected.</p>
+                if (warningCount >= maxWarnings) {
+                    document.body.innerHTML = `
+                        <div style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;display:flex;justify-content:center;align-items:center;flex-direction:column;color:#fff;font-family:Arial,sans-serif;z-index:999999;">
+                            <h1 style="color:#ff0000;font-size:48px;">⛔ ACCESS DENIED</h1>
+                            <p>Developer tools detected.</p>
+                        </div>
+                    `;
+                    setInterval(function() { while(true) {} }, 100);
+                    return;
+                }
+
+                const overlay = document.createElement('div');
+                overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.95);z-index:999999;display:flex;justify-content:center;align-items:center;';
+                overlay.innerHTML = `
+                    <div style="text-align:center;color:#fff;padding:40px;border:2px solid #ff0000;border-radius:10px;">
+                        <h1 style="color:#ff0000;">⚠️ WARNING ${warningCount}/${maxWarnings}</h1>
+                        <p>Developer tools detected!</p>
+                        <p style="color:#ff6666;">Close DevTools immediately</p>
+                        <button onclick="location.reload()" style="margin-top:20px;padding:10px 30px;background:#ff0000;color:#fff;border:none;border-radius:5px;cursor:pointer;">Continue</button>
                     </div>
                 `;
-                setInterval(function() { while(true) {} }, 100);
-                return;
+                document.body.appendChild(overlay);
+                
+                setTimeout(function() { devtoolsOpen = false; }, 2000);
             }
 
-            const overlay = document.createElement('div');
-            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.95);z-index:999999;display:flex;justify-content:center;align-items:center;';
-            overlay.innerHTML = `
-                <div style="text-align:center;color:#fff;padding:40px;border:2px solid #ff0000;border-radius:10px;">
-                    <h1 style="color:#ff0000;">⚠️ WARNING ${warningCount}/${maxWarnings}</h1>
-                    <p>Developer tools detected!</p>
-                    <p style="color:#ff6666;">Close DevTools immediately</p>
-                    <button onclick="location.reload()" style="margin-top:20px;padding:10px 30px;background:#ff0000;color:#fff;border:none;border-radius:5px;cursor:pointer;">Continue</button>
-                </div>
-            `;
-            document.body.appendChild(overlay);
-            
-            setTimeout(function() { devtoolsOpen = false; }, 2000);
-        }
-
-        // ONLY block specific DevTools keys, allow all others
-        function blockKeys(e) {
-            // F12
-            if (e.keyCode === 123) {
-                e.preventDefault();
-                e.stopPropagation();
-                triggerProtection();
-                return false;
-            }
-            
-            // Ctrl+Shift+I/J/C/U
-            if (e.ctrlKey && e.shiftKey) {
-                // I = 73, J = 74, C = 67
-                if (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67) {
+            function blockKeys(e) {
+                if (e.keyCode === 123) {
                     e.preventDefault();
                     e.stopPropagation();
                     triggerProtection();
                     return false;
                 }
-            }
-            
-            // Ctrl+U (view source)
-            if (e.ctrlKey && e.keyCode === 85 && !e.shiftKey && !e.altKey) {
-                e.preventDefault();
-                e.stopPropagation();
-                return false;
-            }
-            
-            // Cmd+Option+I/J (Mac)
-            if (e.metaKey && e.altKey) {
-                if (e.keyCode === 73 || e.keyCode === 74) {
+                
+                if (e.ctrlKey && e.shiftKey) {
+                    if (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        triggerProtection();
+                        return false;
+                    }
+                }
+                
+                if (e.ctrlKey && e.keyCode === 85 && !e.shiftKey && !e.altKey) {
                     e.preventDefault();
                     e.stopPropagation();
-                    triggerProtection();
                     return false;
                 }
+                
+                if (e.metaKey && e.altKey) {
+                    if (e.keyCode === 73 || e.keyCode === 74) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        triggerProtection();
+                        return false;
+                    }
+                }
+                
+                return true;
             }
-            
-            // ALLOW ALL OTHER KEYS (letters, numbers, etc.)
-            return true;
-        }
 
-        // Block right click
-        function blockContextMenu(e) {
-            e.preventDefault();
-            return false;
-        }
+            function blockContextMenu(e) {
+                e.preventDefault();
+                return false;
+            }
 
-        // Block drag and drop
-        function blockDragDrop(e) {
-            e.preventDefault();
-            return false;
-        }
+            function blockDragDrop(e) {
+                e.preventDefault();
+                return false;
+            }
 
-        // Initialize
-        function initProtection() {
-            disabledConsole();
-            
-            // Only attach to document, use capture but don't stop propagation for normal keys
-            document.addEventListener('keydown', blockKeys, true);
-            
-            document.addEventListener('contextmenu', blockContextMenu, true);
-            document.addEventListener('dragover', blockDragDrop, true);
-            document.addEventListener('drop', blockDragDrop, true);
-            
-            setInterval(checkDevTools, 500);
-            window.addEventListener('resize', checkDevTools, true);
-        }
+            function initProtection() {
+                disabledConsole();
+                document.addEventListener('keydown', blockKeys, true);
+                document.addEventListener('contextmenu', blockContextMenu, true);
+                document.addEventListener('dragover', blockDragDrop, true);
+                document.addEventListener('drop', blockDragDrop, true);
+                setInterval(checkDevTools, 500);
+                window.addEventListener('resize', checkDevTools, true);
+            }
 
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initProtection, true);
-        } else {
-            initProtection();
-        }
-    })();
-</script>
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initProtection, true);
+            } else {
+                initProtection();
+            }
+        })();
+    </script>
 </head>
 <body class="bg-slate-950 text-slate-200 min-h-screen overflow-x-hidden">
 
@@ -243,7 +207,6 @@
             addDoc, deleteDoc, updateDoc, onSnapshot, query, orderBy 
         } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
-        // 🔥 PASTE YOUR FIREBASE CONFIG HERE
         const firebaseConfig = {
            apiKey: "AIzaSyCd-hIh7umnKhDBs3TW2hmrGo8VxylEUvA",
   authDomain: "examvault-e4e35.firebaseapp.com",
@@ -309,6 +272,7 @@
             
             <div class="mt-6 text-center text-xs text-slate-500">
                 <p>Default Credentials:</p>
+                <p class="font-mono text-slate-400">admin / admin123</p>
                 <p class="font-mono text-slate-400">user / user123</p>
             </div>
         </div>
@@ -369,6 +333,9 @@
                 </button>
             </div>
         </aside>
+
+        <!-- MOBILE OVERLAY - FIXED -->
+        <div id="mobileOverlay" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden"></div>
 
         <!-- Main Content -->
         <main class="md:ml-64 min-h-screen transition-all duration-300">
@@ -487,7 +454,7 @@
                     </div>
                 </div>
 
-                <!-- Upload Tab (Admin Only) -->
+                <!-- Upload Tab -->
                 <div id="tab-upload" class="tab-content hidden-section animate-slide-in">
                     <div class="max-w-2xl mx-auto">
                         <div class="glass rounded-2xl p-8 border border-slate-800">
@@ -546,7 +513,7 @@
                     </div>
                 </div>
 
-                <!-- User Management (Admin Only) -->
+                <!-- User Management -->
                 <div id="tab-users" class="tab-content hidden-section animate-slide-in">
                     <div class="glass rounded-2xl p-6 border border-slate-800">
                         <div class="flex justify-between items-center mb-6">
@@ -573,10 +540,8 @@
                     </div>
                 </div>
 
-                <!-- Settings Tab - USER -->
+                <!-- Settings Tab -->
                 <div id="tab-settings" class="tab-content hidden-section animate-slide-in">
-                    
-                    <!-- USER Settings -->
                     <div id="userSettingsPanel" class="max-w-2xl mx-auto space-y-6 hidden">
                         <div class="glass rounded-2xl p-6 border border-slate-800">
                             <h3 class="text-lg font-semibold text-white mb-4">My Profile</h3>
@@ -601,7 +566,6 @@
                         </div>
                     </div>
 
-                    <!-- ADMIN Settings -->
                     <div id="adminSettingsPanel" class="max-w-2xl mx-auto space-y-6 hidden">
                         <div class="glass rounded-2xl p-6 border border-slate-800">
                             <h3 class="text-lg font-semibold text-white mb-4">Admin Profile</h3>
@@ -635,7 +599,6 @@
                             </div>
                         </div>
                     </div>
-
                 </div>
 
             </div>
@@ -683,468 +646,631 @@
         </div>
     </div>
 
-   <script>
-    let currentUser = null;
-    let questions = [];
-    let users = [];
-    let selectedQuestions = new Set();
-    let editingId = null;
+    <script>
+        let currentUser = null;
+        let questions = [];
+        let users = [];
+        let selectedQuestions = new Set();
+        let editingId = null;
 
-    const demoUsers = [
-        { id: '1', username: 'admin', password: 'admin123', role: 'admin', lastLogin: new Date().toISOString() },
-        { id: '2', username: 'user', password: 'user123', role: 'user', lastLogin: new Date().toISOString() }
-    ];
+        const demoUsers = [
+            { id: '1', username: 'admin', password: 'admin123', role: 'admin', lastLogin: new Date().toISOString() },
+            { id: '2', username: 'user', password: 'user123', role: 'user', lastLogin: new Date().toISOString() }
+        ];
 
-    const demoQuestions = [
-        { id: '1', subject: 'Mathematics', type: 'mcq', text: 'What is 2+2?', options: ['3', '4', '5', '6'], answer: '4', date: new Date().toISOString(), downloads: 0 },
-        { id: '2', subject: 'Physics', type: 'short', text: 'Define gravity.', date: new Date().toISOString(), downloads: 0 }
-    ];
+        const demoQuestions = [
+            { id: '1', subject: 'Mathematics', type: 'mcq', text: 'What is 2+2?', options: ['3', '4', '5', '6'], answer: '4', date: new Date().toISOString(), downloads: 0 },
+            { id: '2', subject: 'Physics', type: 'short', text: 'Define gravity.', date: new Date().toISOString(), downloads: 0 }
+        ];
 
-    window.onload = async function() {
-        await new Promise(r => setTimeout(r, 500));
-        
-        const statusEl = document.getElementById('connectionStatus');
-        
-        if (window.firebaseLoaded) {
-            statusEl.innerHTML = '<i class="fas fa-check-circle text-emerald-400"></i><span class="text-emerald-400">Connected</span>';
-            statusEl.className = 'mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs';
+        window.onload = async function() {
+            await new Promise(r => setTimeout(r, 500));
             
-            await checkFirstTimeSetup();
+            const statusEl = document.getElementById('connectionStatus');
             
-            const session = localStorage.getItem('examvault_session');
-            if (session) {
-                const userData = JSON.parse(session);
-                const userDoc = await window.firestore.getDoc(window.firestore.doc(window.db, 'users', userData.id));
-                if (userDoc.exists()) {
-                    currentUser = { id: userDoc.id, ...userDoc.data() };
-                    showApp();
+            if (window.firebaseLoaded) {
+                statusEl.innerHTML = '<i class="fas fa-check-circle text-emerald-400"></i><span class="text-emerald-400">Connected</span>';
+                statusEl.className = 'mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs';
+                
+                await checkFirstTimeSetup();
+                
+                const session = localStorage.getItem('examvault_session');
+                if (session) {
+                    const userData = JSON.parse(session);
+                    const userDoc = await window.firestore.getDoc(window.firestore.doc(window.db, 'users', userData.id));
+                    if (userDoc.exists()) {
+                        currentUser = { id: userDoc.id, ...userDoc.data() };
+                        showApp();
+                    }
                 }
+            } else {
+                statusEl.innerHTML = '<i class="fas fa-times-circle text-red-400"></i><span class="text-red-400">Failed</span>';
+                statusEl.className = 'mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-xs';
             }
-        } else {
-            statusEl.innerHTML = '<i class="fas fa-times-circle text-red-400"></i><span class="text-red-400">Failed</span>';
-            statusEl.className = 'mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-xs';
+        };
+
+        async function checkFirstTimeSetup() {
+            try {
+                const usersSnapshot = await window.firestore.getDocs(window.firestore.collection(window.db, 'users'));
+                if (usersSnapshot.empty) {
+                    for (const user of demoUsers) {
+                        await window.firestore.setDoc(window.firestore.doc(window.db, 'users', user.id), user);
+                    }
+                    for (const q of demoQuestions) {
+                        await window.firestore.addDoc(window.firestore.collection(window.db, 'questions'), q);
+                    }
+                }
+            } catch (e) { console.error('Setup error:', e); }
         }
-    };
 
-    async function checkFirstTimeSetup() {
-        try {
-            const usersSnapshot = await window.firestore.getDocs(window.firestore.collection(window.db, 'users'));
-            if (usersSnapshot.empty) {
-                for (const user of demoUsers) {
-                    await window.firestore.setDoc(window.firestore.doc(window.db, 'users', user.id), user);
-                }
-                for (const q of demoQuestions) {
-                    await window.firestore.addDoc(window.firestore.collection(window.db, 'questions'), q);
-                }
-            }
-        } catch (e) { console.error('Setup error:', e); }
-    }
-
-    async function login() {
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        const btn = document.getElementById('loginBtn');
-        
-        btn.innerHTML = '<div class="loading-spinner w-5 h-5 border-2"></div>';
-        
-        try {
-            const snapshot = await window.firestore.getDocs(window.firestore.collection(window.db, 'users'));
-            let foundUser = null;
-            snapshot.forEach(doc => {
-                const user = doc.data();
-                if (user.username === username && user.password === password) {
-                    foundUser = { id: doc.id, ...user };
-                }
-            });
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('loginBtn');
             
-            if (foundUser) {
-                currentUser = foundUser;
-                await window.firestore.updateDoc(window.firestore.doc(window.db, 'users', foundUser.id), {
-                    lastLogin: new Date().toISOString()
+            btn.innerHTML = '<div class="loading-spinner w-5 h-5 border-2"></div>';
+            
+            try {
+                const snapshot = await window.firestore.getDocs(window.firestore.collection(window.db, 'users'));
+                let foundUser = null;
+                snapshot.forEach(doc => {
+                    const user = doc.data();
+                    if (user.username === username && user.password === password) {
+                        foundUser = { id: doc.id, ...user };
+                    }
                 });
-                localStorage.setItem('examvault_session', JSON.stringify({ id: foundUser.id, username: foundUser.username }));
-                showApp();
-                showToast('Welcome, ' + foundUser.username + '!', 'success');
+                
+                if (foundUser) {
+                    currentUser = foundUser;
+                                       await window.firestore.updateDoc(window.firestore.doc(window.db, 'users', foundUser.id), {
+                        lastLogin: new Date().toISOString()
+                    });
+                    localStorage.setItem('examvault_session', JSON.stringify({ id: foundUser.id }));
+                    showApp();
+                } else {
+                    document.getElementById('loginError').classList.remove('hidden');
+                    btn.innerHTML = '<span>Sign In</span>';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showToast('Connection error', 'error');
+                btn.innerHTML = '<span>Sign In</span>';
+            }
+        }
+
+        function showApp() {
+            document.getElementById('loginScreen').classList.add('hidden-section');
+            document.getElementById('app').classList.remove('hidden-section');
+            document.getElementById('userRoleDisplay').textContent = currentUser.role;
+            document.getElementById('userAvatar').textContent = currentUser.username.charAt(0).toUpperCase();
+            
+            if (currentUser.role === 'admin') {
+                document.getElementById('adminOnlyNav').classList.remove('hidden');
+                document.getElementById('adminActions').classList.remove('hidden');
+                document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+                document.getElementById('adminSettingsPanel').classList.remove('hidden');
+                document.getElementById('userSettingsAvatar').textContent = currentUser.username.charAt(0).toUpperCase();
+                document.getElementById('adminSettingsName').textContent = currentUser.username;
             } else {
-                document.getElementById('loginError').classList.remove('hidden');
+                document.getElementById('userSettingsPanel').classList.remove('hidden');
+                document.getElementById('userSettingsAvatar').textContent = currentUser.username.charAt(0).toUpperCase();
+                document.getElementById('userSettingsName').textContent = currentUser.username;
+                document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
             }
-        } catch (error) {
-            showToast('Login error', 'error');
-        } finally {
-            btn.innerHTML = '<span>Sign In</span>';
+            
+            loadQuestions();
+            loadUsers();
+            updateStats();
         }
-    }
 
-    function logout() {
-        currentUser = null;
-        localStorage.removeItem('examvault_session');
-        location.reload();
-    }
-
-    function showApp() {
-        document.getElementById('loginScreen').classList.add('hidden-section');
-        document.getElementById('app').classList.remove('hidden-section');
-        
-        document.getElementById('userRoleDisplay').textContent = currentUser.role;
-        document.getElementById('userAvatar').textContent = currentUser.username[0].toUpperCase();
-        
-        if (currentUser.role === 'admin') {
-            document.getElementById('adminOnlyNav').classList.remove('hidden');
-            document.getElementById('adminActions').classList.remove('hidden');
-            document.getElementById('adminSettingsPanel').classList.remove('hidden');
-            document.getElementById('userSettingsPanel').classList.add('hidden');
-            document.getElementById('adminSettingsName').textContent = currentUser.username;
-            document.getElementById('adminSettingsAvatar').textContent = currentUser.username[0].toUpperCase();
-            document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
-        } else {
-            document.getElementById('adminOnlyNav').classList.add('hidden');
-            document.getElementById('adminActions').classList.add('hidden');
-            document.getElementById('adminSettingsPanel').classList.add('hidden');
-            document.getElementById('userSettingsPanel').classList.remove('hidden');
-            document.getElementById('userSettingsName').textContent = currentUser.username;
-            document.getElementById('userSettingsAvatar').textContent = currentUser.username[0].toUpperCase();
-            document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
+        function logout() {
+            localStorage.removeItem('examvault_session');
+            currentUser = null;
+            location.reload();
         }
-        
-        setupRealtimeListeners();
-    }
 
-    function setupRealtimeListeners() {
-        window.firestore.onSnapshot(
-            window.firestore.query(window.firestore.collection(window.db, 'questions'), window.firestore.orderBy('date', 'desc')),
-            (snapshot) => {
-                questions = [];
-                snapshot.forEach(doc => questions.push({ id: doc.id, ...doc.data() }));
-                renderQuestions();
-                updateDashboard();
-                document.getElementById('userQuestionCount').textContent = questions.length + ' questions available';
-            }
-        );
-
-        window.firestore.onSnapshot(window.firestore.collection(window.db, 'users'), (snapshot) => {
-            users = [];
-            snapshot.forEach(doc => users.push({ id: doc.id, ...doc.data() }));
-            renderUsers();
-            document.getElementById('statUsers').textContent = users.length;
-        });
-    }
-
-    // FIXED: Close sidebar when switching tabs on mobile
-    function switchTab(tab) {
-        // Hide all tabs
-        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden-section'));
-        
-        // Remove active styling from all nav buttons
-        document.querySelectorAll('nav button').forEach(el => {
-            el.classList.remove('bg-purple-600/20', 'text-purple-300', 'border-purple-500/30');
-            el.classList.add('text-slate-400');
-        });
-        
-        // Show selected tab
-        document.getElementById(`tab-${tab}`).classList.remove('hidden-section');
-        
-        // Style active button
-        const activeBtn = document.getElementById(`nav-${tab}`);
-        if (activeBtn) {
-            activeBtn.classList.add('bg-purple-600/20', 'text-purple-300', 'border', 'border-purple-500/30');
-            activeBtn.classList.remove('text-slate-400');
-        }
-        
-        // Update page title
-        const titles = { dashboard: 'Dashboard', questions: 'Questions', upload: 'Upload', users: 'Users', settings: 'Settings' };
-        document.getElementById('pageTitle').textContent = titles[tab];
-        
-        // FIXED: Close sidebar on mobile after tab switch
-        closeSidebar();
-    }
-
-    // FIXED: Proper sidebar toggle with overlay
-    function toggleSidebar() {
-        const sidebar = document.getElementById('sidebar');
-        const overlay = document.getElementById('mobileOverlay');
-        
-        if (sidebar.classList.contains('-translate-x-full')) {
-            // Open sidebar
-            sidebar.classList.remove('-translate-x-full');
-            overlay.classList.remove('hidden');
-            document.body.style.overflow = 'hidden'; // Prevent body scroll
-        } else {
-            // Close sidebar
-            closeSidebar();
-        }
-    }
-
-    // FIXED: Close sidebar function
-    function closeSidebar() {
-        const sidebar = document.getElementById('sidebar');
-        const overlay = document.getElementById('mobileOverlay');
-        
-        sidebar.classList.add('-translate-x-full');
-        overlay.classList.add('hidden');
-        document.body.style.overflow = ''; // Restore body scroll
-    }
-
-    function renderQuestions() {
-        const tbody = document.getElementById('questionsTableBody');
-        const search = document.getElementById('searchInput').value.toLowerCase();
-        const subject = document.getElementById('filterSubject').value;
-        
-        let filtered = questions.filter(q => q.text.toLowerCase().includes(search) && (!subject || q.subject === subject));
-        
-        if (filtered.length === 0) {
-            tbody.innerHTML = '';
-            document.getElementById('emptyState').classList.remove('hidden');
-            return;
-        }
-        
-        document.getElementById('emptyState').classList.add('hidden');
-        tbody.innerHTML = filtered.map(q => `
-            <tr class="hover:bg-slate-800/30">
-                ${currentUser.role === 'admin' ? `<td class="p-4"><input type="checkbox" onchange="toggleSelection('${q.id}')" ${selectedQuestions.has(q.id) ? 'checked' : ''} class="rounded bg-slate-700 border-slate-600"></td>` : '<td class="p-4 admin-only hidden"></td>'}
-                <td class="p-4 text-white">${q.text}</td>
-                <td class="p-4"><span class="px-2 py-1 rounded bg-slate-800 text-purple-300 text-xs">${q.subject}</span></td>
-                <td class="p-4 text-xs uppercase text-slate-400">${q.type}</td>
-                <td class="p-4 text-slate-400 text-sm">${new Date(q.date).toLocaleDateString()}</td>
-                <td class="p-4 text-right">
-                    <button onclick="downloadQuestion('${q.id}')" class="text-blue-400 hover:text-blue-300 mr-2"><i class="fas fa-download"></i></button>
-                    ${currentUser.role === 'admin' ? `
-                        <button onclick="openEditModal('${q.id}')" class="text-purple-400 hover:text-purple-300 mr-2"><i class="fas fa-edit"></i></button>
-                        <button onclick="deleteQuestion('${q.id}')" class="text-red-400 hover:text-red-300"><i class="fas fa-trash"></i></button>
-                    ` : ''}
-                </td>
-            </tr>
-        `).join('');
-        
-        document.getElementById('totalQuestionsBadge').textContent = questions.length + ' Questions';
-        
-        const subjects = [...new Set(questions.map(q => q.subject))];
-        document.getElementById('filterSubject').innerHTML = '<option value="">All Subjects</option>' + subjects.map(s => `<option value="${s}">${s}</option>`).join('');
-    }
-
-    async function uploadQuestion() {
-        const btn = document.getElementById('uploadBtn');
-        btn.innerHTML = '<div class="loading-spinner w-5 h-5 border-2 mr-2"></div>Uploading...';
-        
-        try {
-            const q = {
-                subject: document.getElementById('uploadSubject').value,
-                type: document.getElementById('questionType').value,
-                text: document.getElementById('questionText').value,
-                date: new Date().toISOString(),
-                downloads: 0,
-                createdBy: currentUser.id
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden-section'));
+            document.getElementById('tab-' + tabName).classList.remove('hidden-section');
+            document.querySelectorAll('nav button').forEach(btn => {
+                btn.classList.remove('bg-purple-600/20', 'text-purple-300', 'border-purple-500/30');
+                btn.classList.add('text-slate-400');
+            });
+            document.getElementById('nav-' + tabName).classList.add('bg-purple-600/20', 'text-purple-300', 'border-purple-500/30');
+            document.getElementById('nav-' + tabName).classList.remove('text-slate-400');
+            
+            const titles = {
+                'dashboard': 'Dashboard',
+                'questions': 'Question Bank',
+                'upload': 'Upload Question',
+                'users': 'User Management',
+                'settings': 'Settings'
             };
+            document.getElementById('pageTitle').textContent = titles[tabName] || tabName;
             
-            if (q.type === 'mcq') {
-                q.options = Array.from(document.querySelectorAll('.option-input')).map(i => i.value);
-                q.answer = document.querySelector('.correct-answer').value;
+            if (window.innerWidth < 768) {
+                toggleSidebar();
+            }
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+
+        async function loadQuestions() {
+            try {
+                const snapshot = await window.firestore.getDocs(window.firestore.query(
+                    window.firestore.collection(window.db, 'questions'),
+                    window.firestore.orderBy('date', 'desc')
+                ));
+                questions = [];
+                snapshot.forEach(doc => {
+                    questions.push({ id: doc.id, ...doc.data() });
+                });
+                renderQuestions();
+                updateSubjectFilter();
+                updateStats();
+            } catch (error) {
+                console.error('Error loading questions:', error);
+            }
+        }
+
+        function renderQuestions(filtered = questions) {
+            const tbody = document.getElementById('questionsTableBody');
+            const emptyState = document.getElementById('emptyState');
+            
+            if (filtered.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
             }
             
-            await window.firestore.addDoc(window.firestore.collection(window.db, 'questions'), q);
-            document.getElementById('uploadForm').reset();
-            selectType('mcq');
-            showToast('Uploaded!', 'success');
-            switchTab('questions');
-        } catch (e) {
-            showToast('Upload failed', 'error');
-        } finally {
-            btn.innerHTML = '<i class="fas fa-plus-circle mr-2"></i>Add to Cloud';
+            emptyState.classList.add('hidden');
+            tbody.innerHTML = filtered.map(q => `
+                <tr class="hover:bg-slate-800/30 transition-colors">
+                    <td class="p-4 admin-only">
+                        <input type="checkbox" class="custom-checkbox rounded bg-slate-700 border-slate-600" 
+                            onchange="toggleSelection('${q.id}')" 
+                            ${selectedQuestions.has(q.id) ? 'checked' : ''}>
+                    </td>
+                    <td class="p-4">
+                        <div class="text-white font-medium truncate max-w-xs">${q.text}</div>
+                    </td>
+                    <td class="p-4">
+                        <span class="px-2 py-1 rounded-full bg-slate-700 text-slate-300 text-xs">${q.subject}</span>
+                    </td>
+                    <td class="p-4">
+                        <span class="px-2 py-1 rounded-full ${getTypeColor(q.type)} text-xs capitalize">${q.type}</span>
+                    </td>
+                    <td class="p-4 text-slate-400 text-sm">
+                        ${new Date(q.date).toLocaleDateString()}
+                    </td>
+                    <td class="p-4 text-right">
+                        <button onclick="downloadQuestion('${q.id}')" class="text-emerald-400 hover:text-emerald-300 mr-3" title="Download">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        ${currentUser.role === 'admin' ? `
+                            <button onclick="editQuestion('${q.id}')" class="text-blue-400 hover:text-blue-300 mr-3" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="deleteQuestion('${q.id}')" class="text-red-400 hover:text-red-300" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `).join('');
+            
+            document.getElementById('totalQuestionsBadge').textContent = `${questions.length} Questions`;
+            document.getElementById('userQuestionCount').textContent = `${questions.length} available`;
         }
-    }
 
-    function selectType(type) {
-        document.querySelectorAll('.type-btn').forEach(btn => {
-            if (btn.dataset.type === type) {
-                btn.className = 'type-btn active px-4 py-3 rounded-xl border border-purple-500 bg-purple-500/20 text-purple-300 text-sm font-medium';
+        function getTypeColor(type) {
+            const colors = {
+                'mcq': 'bg-blue-500/20 text-blue-300',
+                'essay': 'bg-purple-500/20 text-purple-300',
+                'short': 'bg-emerald-500/20 text-emerald-300'
+            };
+            return colors[type] || 'bg-slate-700 text-slate-300';
+        }
+
+        function updateSubjectFilter() {
+            const subjects = [...new Set(questions.map(q => q.subject))];
+            const select = document.getElementById('filterSubject');
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">All Subjects</option>' + 
+                subjects.map(s => `<option value="${s}">${s}</option>`).join('');
+            select.value = currentValue;
+        }
+
+        function searchQuestions() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = questions.filter(q => 
+                q.text.toLowerCase().includes(searchTerm) ||
+                q.subject.toLowerCase().includes(searchTerm)
+            );
+            renderQuestions(filtered);
+        }
+
+        function filterBySubject() {
+            const subject = document.getElementById('filterSubject').value;
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            let filtered = questions;
+            
+            if (subject) {
+                filtered = filtered.filter(q => q.subject === subject);
+            }
+            if (searchTerm) {
+                filtered = filtered.filter(q => q.text.toLowerCase().includes(searchTerm));
+            }
+            renderQuestions(filtered);
+        }
+
+        function toggleSelection(id) {
+            if (selectedQuestions.has(id)) {
+                selectedQuestions.delete(id);
             } else {
-                btn.className = 'type-btn px-4 py-3 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-400 text-sm font-medium';
+                selectedQuestions.add(id);
             }
-        });
-        document.getElementById('questionType').value = type;
-        document.getElementById('mcqOptions').classList.toggle('hidden', type !== 'mcq');
-    }
-
-    async function deleteQuestion(id) {
-        if (!confirm('Delete?')) return;
-        await window.firestore.deleteDoc(window.firestore.doc(window.db, 'questions', id));
-        showToast('Deleted', 'success');
-    }
-
-    function toggleSelection(id) {
-        selectedQuestions.has(id) ? selectedQuestions.delete(id) : selectedQuestions.add(id);
-        document.getElementById('deleteSelectedBtn').classList.toggle('hidden', selectedQuestions.size === 0);
-    }
-
-    function toggleSelectAll() {
-        const checked = document.getElementById('selectAll').checked;
-        document.querySelectorAll('#questionsTableBody input[type="checkbox"]').forEach(cb => {
-            cb.checked = checked;
-            const id = cb.getAttribute('onchange').match(/'(.*?)'/)[1];
-            checked ? selectedQuestions.add(id) : selectedQuestions.delete(id);
-        });
-        document.getElementById('deleteSelectedBtn').classList.toggle('hidden', selectedQuestions.size === 0);
-    }
-
-    async function deleteSelected() {
-        if (!confirm(`Delete ${selectedQuestions.size}?`)) return;
-        for (const id of selectedQuestions) {
-            await window.firestore.deleteDoc(window.firestore.doc(window.db, 'questions', id));
+            updateDeleteButton();
         }
-        selectedQuestions.clear();
-        showToast('Deleted', 'success');
-    }
 
-    function openEditModal(id) {
-        const q = questions.find(q => q.id === id);
-        editingId = id;
-        document.getElementById('editQuestionText').value = q.text;
-        document.getElementById('editSubject').value = q.subject;
-        document.getElementById('editModal').classList.remove('hidden');
-    }
-
-    function closeEditModal() {
-        document.getElementById('editModal').classList.add('hidden');
-        editingId = null;
-    }
-
-    async function saveEdit() {
-        await window.firestore.updateDoc(window.firestore.doc(window.db, 'questions', editingId), {
-            text: document.getElementById('editQuestionText').value,
-            subject: document.getElementById('editSubject').value
-        });
-        closeEditModal();
-        showToast('Updated', 'success');
-    }
-
-    function searchQuestions() { renderQuestions(); }
-    function filterBySubject() { renderQuestions(); }
-
-    async function downloadQuestion(id) {
-        const q = questions.find(q => q.id === id);
-        await window.firestore.updateDoc(window.firestore.doc(window.db, 'questions', id), {
-            downloads: (q.downloads || 0) + 1
-        });
-        
-        const blob = new Blob([`Q: ${q.text}\nSubject: ${q.subject}`], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `question_${id}.txt`;
-        a.click();
-        showToast('Downloaded', 'success');
-    }
-
-    async function downloadAll() {
-        if (questions.length === 0) return;
-        
-        const content = questions.map(q => `Q: ${q.text}\nSubject: ${q.subject}\n---`).join('\n\n');
-        const blob = new Blob([content], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'all_questions.txt';
-        a.click();
-        
-        for (const q of questions) {
-            await window.firestore.updateDoc(window.firestore.doc(window.db, 'questions', q.id), {
-                downloads: (q.downloads || 0) + 1
-            }).catch(() => {});
+        function toggleSelectAll() {
+            const checkboxes = document.querySelectorAll('#questionsTableBody input[type="checkbox"]');
+            const allChecked = document.getElementById('selectAll').checked;
+            
+            if (allChecked) {
+                questions.forEach(q => selectedQuestions.add(q.id));
+            } else {
+                selectedQuestions.clear();
+            }
+            renderQuestions();
+            updateDeleteButton();
         }
-        showToast(`Downloaded ${questions.length}`, 'success');
-    }
 
-    function updateDashboard() {
-        document.getElementById('statTotal').textContent = questions.length;
-        document.getElementById('statDownloads').textContent = questions.reduce((a, b) => a + (b.downloads || 0), 0);
-        
-        const recent = questions.slice(0, 5);
-        document.getElementById('activityList').innerHTML = recent.length ? recent.map(q => `
-            <div class="flex items-center gap-4 p-3 rounded-xl bg-slate-800/30 border border-slate-800">
-                <div class="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                    <i class="fas fa-question text-purple-400"></i>
-                </div>
-                <div class="flex-1">
-                    <p class="text-white text-sm truncate">${q.text}</p>
-                    <p class="text-slate-500 text-xs">${q.subject}</p>
-                </div>
-            </div>
-        `).join('') : '<p class="text-slate-500 text-center">No questions yet</p>';
-    }
+        function updateDeleteButton() {
+            const btn = document.getElementById('deleteSelectedBtn');
+            if (selectedQuestions.size > 0) {
+                btn.classList.remove('hidden');
+                btn.innerHTML = `<i class="fas fa-trash mr-2"></i>Delete Selected (${selectedQuestions.size})`;
+            } else {
+                btn.classList.add('hidden');
+            }
+        }
 
-    function renderUsers() {
-        document.getElementById('usersTableBody').innerHTML = users.map(u => `
-            <tr class="border-b border-slate-800">
-                <td class="p-4 text-white">${u.username}</td>
-                <td class="p-4"><span class="px-2 py-1 rounded text-xs ${u.role === 'admin' ? 'bg-purple-500/20 text-purple-300' : 'bg-blue-500/20 text-blue-300'}">${u.role}</span></td>
-                <td class="p-4 text-slate-400 text-sm">${new Date(u.lastLogin).toLocaleDateString()}</td>
-                <td class="p-4 text-right">
-                    ${u.id !== currentUser.id ? `<button onclick="deleteUser('${u.id}')" class="text-red-400 hover:text-red-300"><i class="fas fa-trash"></i></button>` : '<span class="text-slate-600 text-xs">You</span>'}
-                </td>
-            </tr>
-        `).join('');
-    }
+        async function deleteSelected() {
+            if (!confirm(`Delete ${selectedQuestions.size} selected questions?`)) return;
+            
+            try {
+                for (const id of selectedQuestions) {
+                    await window.firestore.deleteDoc(window.firestore.doc(window.db, 'questions', id));
+                }
+                selectedQuestions.clear();
+                showToast('Questions deleted successfully');
+                loadQuestions();
+            } catch (error) {
+                showToast('Error deleting questions', 'error');
+            }
+        }
 
-    async function showAddUserModal() {
-        const username = prompt('Username:');
-        if (!username || users.find(u => u.username === username)) return showToast('Exists', 'error');
-        const password = prompt('Password:');
-        if (!password) return;
-        const role = confirm('Admin?') ? 'admin' : 'user';
-        
-        await window.firestore.addDoc(window.firestore.collection(window.db, 'users'), {
-            username, password, role, lastLogin: new Date().toISOString()
+        async function deleteQuestion(id) {
+            if (!confirm('Delete this question?')) return;
+            
+            try {
+                await window.firestore.deleteDoc(window.firestore.doc(window.db, 'questions', id));
+                showToast('Question deleted');
+                loadQuestions();
+            } catch (error) {
+                showToast('Error deleting question', 'error');
+            }
+        }
+
+        function selectType(type) {
+            document.querySelectorAll('.type-btn').forEach(btn => {
+                btn.classList.remove('active', 'border-purple-500', 'bg-purple-500/20', 'text-purple-300');
+                btn.classList.add('border-slate-700', 'bg-slate-800/50', 'text-slate-400');
+            });
+            document.querySelector(`[data-type="${type}"]`).classList.add('active', 'border-purple-500', 'bg-purple-500/20', 'text-purple-300');
+            document.querySelector(`[data-type="${type}"]`).classList.remove('border-slate-700', 'bg-slate-800/50', 'text-slate-400');
+            document.getElementById('questionType').value = type;
+            
+            const mcqOptions = document.getElementById('mcqOptions');
+            if (type === 'mcq') {
+                mcqOptions.classList.remove('hidden');
+            } else {
+                mcqOptions.classList.add('hidden');
+            }
+        }
+
+        async function uploadQuestion() {
+            const subject = document.getElementById('uploadSubject').value;
+            const type = document.getElementById('questionType').value;
+            const text = document.getElementById('questionText').value;
+            
+            if (!text.trim()) {
+                showToast('Please enter a question', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('uploadBtn');
+            btn.innerHTML = '<div class="loading-spinner w-5 h-5 border-2 inline-block mr-2"></div>Uploading...';
+            btn.disabled = true;
+            
+            try {
+                const questionData = {
+                    subject,
+                    type,
+                    text,
+                    date: new Date().toISOString(),
+                    downloads: 0
+                };
+                
+                if (type === 'mcq') {
+                    const options = Array.from(document.querySelectorAll('.option-input')).map(input => input.value);
+                    const answer = document.querySelector('.correct-answer').value;
+                    questionData.options = options.filter(o => o.trim());
+                    questionData.answer = answer;
+                }
+                
+                await window.firestore.addDoc(window.firestore.collection(window.db, 'questions'), questionData);
+                showToast('Question uploaded successfully');
+                document.getElementById('uploadForm').reset();
+                selectType('mcq');
+                switchTab('questions');
+            } catch (error) {
+                showToast('Error uploading question', 'error');
+            } finally {
+                btn.innerHTML = '<i class="fas fa-plus-circle mr-2"></i>Add to Cloud';
+                btn.disabled = false;
+            }
+        }
+
+        function editQuestion(id) {
+            const question = questions.find(q => q.id === id);
+            if (!question) return;
+            
+            editingId = id;
+            document.getElementById('editQuestionText').value = question.text;
+            document.getElementById('editSubject').value = question.subject;
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+            editingId = null;
+        }
+
+        async function saveEdit() {
+            if (!editingId) return;
+            
+            try {
+                await window.firestore.updateDoc(window.firestore.doc(window.db, 'questions', editingId), {
+                    text: document.getElementById('editQuestionText').value,
+                    subject: document.getElementById('editSubject').value
+                });
+                showToast('Question updated');
+                closeEditModal();
+                loadQuestions();
+            } catch (error) {
+                showToast('Error updating question', 'error');
+            }
+        }
+
+        async function loadUsers() {
+            if (currentUser.role !== 'admin') return;
+            
+            try {
+                const snapshot = await window.firestore.getDocs(window.firestore.collection(window.db, 'users'));
+                users = [];
+                snapshot.forEach(doc => {
+                    users.push({ id: doc.id, ...doc.data() });
+                });
+                renderUsers();
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+
+        function renderUsers() {
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = users.map(u => `
+                <tr class="hover:bg-slate-800/30">
+                    <td class="p-4 text-white">${u.username}</td>
+                    <td class="p-4">
+                        <span class="px-2 py-1 rounded-full ${u.role === 'admin' ? 'bg-purple-500/20 text-purple-300' : 'bg-blue-500/20 text-blue-300'} text-xs capitalize">
+                            ${u.role}
+                        </span>
+                    </td>
+                    <td class="p-4 text-slate-400 text-sm">
+                        ${u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}
+                    </td>
+                    <td class="p-4 text-right">
+                        ${u.id !== currentUser.id ? `
+                            <button onclick="deleteUser('${u.id}')" class="text-red-400 hover:text-red-300">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        ` : '<span class="text-slate-600 text-xs">You</span>'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('Delete this user?')) return;
+            
+            try {
+                await window.firestore.deleteDoc(window.firestore.doc(window.db, 'users', id));
+                showToast('User deleted');
+                loadUsers();
+            } catch (error) {
+                showToast('Error deleting user', 'error');
+            }
+        }
+
+        function showAddUserModal() {
+            const username = prompt('Enter username:');
+            if (!username) return;
+            
+            const password = prompt('Enter password:');
+            if (!password) return;
+            
+            const role = confirm('Make this user an admin? Click Cancel for regular user.') ? 'admin' : 'user';
+            
+            addUser(username, password, role);
+        }
+
+        async function addUser(username, password, role) {
+            try {
+                await window.firestore.addDoc(window.firestore.collection(window.db, 'users'), {
+                    username,
+                    password,
+                    role,
+                    lastLogin: null
+                });
+                showToast('User added successfully');
+                loadUsers();
+            } catch (error) {
+                showToast('Error adding user', 'error');
+            }
+        }
+
+        function downloadQuestion(id) {
+            const question = questions.find(q => q.id === id);
+            if (!question) return;
+            
+            const content = formatQuestionForDownload(question);
+            downloadFile(content, `question_${id}.txt`);
+            
+            window.firestore.updateDoc(window.firestore.doc(window.db, 'questions', id), {
+                downloads: (question.downloads || 0) + 1
+            });
+            updateStats();
+        }
+
+        function downloadAll() {
+            if (questions.length === 0) {
+                showToast('No questions to download', 'error');
+                return;
+            }
+            
+            const content = questions.map(q => formatQuestionForDownload(q)).join('\n\n' + '='.repeat(50) + '\n\n');
+            downloadFile(content, 'all_questions.txt');
+            showToast('All questions downloaded');
+        }
+
+        function formatQuestionForDownload(q) {
+            let content = `Subject: ${q.subject}\n`;
+            content += `Type: ${q.type.toUpperCase()}\n`;
+            content += `Date: ${new Date(q.date).toLocaleString()}\n\n`;
+            content += `Question: ${q.text}\n`;
+            
+            if (q.type === 'mcq' && q.options) {
+                content += '\nOptions:\n';
+                q.options.forEach((opt, idx) => {
+                    content += `${String.fromCharCode(65 + idx)}. ${opt}\n`;
+                });
+                if (q.answer) content += `\nCorrect Answer: ${q.answer}`;
+            }
+            
+            return content;
+        }
+
+        function downloadFile(content, filename) {
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        async function updateStats() {
+            document.getElementById('statTotal').textContent = questions.length;
+            document.getElementById('statDownloads').textContent = questions.reduce((sum, q) => sum + (q.downloads || 0), 0);
+            
+            try {
+                const usersSnapshot = await window.firestore.getDocs(window.firestore.collection(window.db, 'users'));
+                document.getElementById('statUsers').textContent = usersSnapshot.size;
+            } catch (e) {
+                document.getElementById('statUsers').textContent = users.length;
+            }
+            
+            const recentQuestions = questions.slice(0, 5);
+            const activityList = document.getElementById('activityList');
+            
+            if (recentQuestions.length === 0) {
+                activityList.innerHTML = '<p class="text-slate-500 text-center py-4">No recent activity</p>';
+            } else {
+                activityList.innerHTML = recentQuestions.map(q => `
+                    <div class="flex items-center justify-between p-3 rounded-lg bg-slate-800/30">
+                        <div>
+                            <p class="text-white text-sm truncate max-w-xs">${q.text}</p>
+                            <p class="text-xs text-slate-500">${q.subject} • ${new Date(q.date).toLocaleDateString()}</p>
+                        </div>
+                        <span class="text-xs px-2 py-1 rounded-full ${getTypeColor(q.type)} capitalize">${q.type}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function exportAll() {
+            const data = {
+                questions: questions,
+                users: users,
+                exportDate: new Date().toISOString()
+            };
+            downloadFile(JSON.stringify(data, null, 2), 'examvault_backup.json');
+            showToast('Data exported');
+        }
+
+        async function clearAllData() {
+            if (!confirm('WARNING: This will delete ALL questions. This cannot be undone. Continue?')) return;
+            if (!confirm('Are you absolutely sure? All questions will be permanently deleted.')) return;
+            
+            try {
+                const batch = [];
+                questions.forEach(q => {
+                    batch.push(window.firestore.deleteDoc(window.firestore.doc(window.db, 'questions', q.id)));
+                });
+                await Promise.all(batch);
+                showToast('All questions cleared');
+                loadQuestions();
+            } catch (error) {
+                showToast('Error clearing data', 'error');
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const msg = document.getElementById('toastMessage');
+            
+            msg.textContent = message;
+            if (type === 'error') {
+                icon.className = 'fas fa-times-circle text-red-400 text-xl';
+            } else {
+                icon.className = 'fas fa-check-circle text-emerald-400 text-xl';
+            }
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Close modal on outside click
+        document.getElementById('editModal').addEventListener('click', function(e) {
+            if (e.target === this) closeEditModal();
         });
-        showToast('Created', 'success');
-    }
 
-    async function deleteUser(id) {
-        if (!confirm('Delete?')) return;
-        await window.firestore.deleteDoc(window.firestore.doc(window.db, 'users', id));
-        showToast('Deleted', 'success');
-    }
-
-    function exportAll() {
-        const blob = new Blob([JSON.stringify({ users, questions }, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `backup_${new Date().toISOString().split('T')[0]}.json`;
-        a.click();
-        showToast('Exported', 'success');
-    }
-
-    async function clearAllData() {
-        if (!confirm('DELETE ALL?')) return;
-        for (const q of questions) {
-            await window.firestore.deleteDoc(window.firestore.doc(window.db, 'questions', q.id));
-        }
-        showToast('Cleared', 'success');
-    }
-
-    function showToast(msg, type = 'success') {
-        const toast = document.getElementById('toast');
-        document.getElementById('toastMessage').textContent = msg;
-        document.getElementById('toastIcon').className = type === 'error' ? 'fas fa-exclamation-circle text-red-400 text-xl' : 'fas fa-check-circle text-emerald-400 text-xl';
-        toast.classList.remove('translate-y-20', 'opacity-0');
-        setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 3000);
-    }
-
-    document.getElementById('password')?.addEventListener('keypress', e => {
-        if (e.key === 'Enter') login();
-    });
-
-    // FIXED: Close sidebar when clicking outside (on the overlay)
-    document.getElementById('mobileOverlay')?.addEventListener('click', closeSidebar);
-
-    // FIXED: Close sidebar when pressing Escape key
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            closeSidebar();
-        }
-    });
-</script>
+        // Mobile overlay click
+        document.getElementById('mobileOverlay').addEventListener('click', toggleSidebar);
+    </script>
 </body>
 </html>
-
-
-
