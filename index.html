@@ -194,71 +194,44 @@
             }
         };
 
-        async function login() {
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value;
-            const btn = document.getElementById('loginBtn');
-            const errorDiv = document.getElementById('loginError');
-            
-            btn.innerHTML = '<div class="loading-spinner w-5 h-5 border-2"></div>';
-            errorDiv.classList.add('hidden');
-            
-            try {
-                const email = `${username}@examvault.com`;
-                
-                // Sign in with Firebase Auth
-                const userCredential = await window.signInWithEmailAndPassword(window.auth, email, password);
-                const uid = userCredential.user.uid;
-                
-                console.log('Auth success, UID:', uid);
-                
-                // Get user data from Firestore using UID
-                const userRef = window.firestore.doc(window.db, 'users', uid);
-                const userDoc = await window.firestore.getDoc(userRef);
-                
-                if (userDoc.exists()) {
-                    currentUser = { uid, ...userDoc.data() };
-                    console.log('User data found:', currentUser);
-                } else {
-                    // Create user doc if not exists
-                    console.log('Creating user doc...');
-                    currentUser = {
-                        uid: uid,
-                        username: username,
-                        role: username === 'admin' ? 'admin' : 'user',
-                        email: email,
-                        createdAt: new Date().toISOString()
-                    };
-                    await window.firestore.setDoc(userRef, currentUser);
-                }
-                
-                localStorage.setItem('examvault_session', JSON.stringify({ uid }));
-                showApp();
-                
-            } catch (error) {
-                console.error('Login error:', error);
-                btn.innerHTML = '<span>Sign In</span>';
-                errorDiv.classList.remove('hidden');
-                
-                switch(error.code) {
-                    case 'auth/user-not-found':
-                        errorDiv.textContent = 'User not found in Firebase Auth. Check Authentication > Users';
-                        break;
-                    case 'auth/wrong-password':
-                        errorDiv.textContent = 'Wrong password';
-                        break;
-                    case 'auth/invalid-email':
-                        errorDiv.textContent = 'Invalid email';
-                        break;
-                    case 'auth/too-many-requests':
-                        errorDiv.textContent = 'Too many attempts. Try again later';
-                        break;
-                    default:
-                        errorDiv.textContent = error.message;
-                }
-            }
+     async function login() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const btn = document.getElementById('loginBtn');
+    const errorDiv = document.getElementById('loginError');
+    
+    btn.innerHTML = '<div class="loading-spinner w-5 h-5 border-2"></div>';
+    errorDiv.classList.add('hidden');
+    
+    try {
+        const email = `${username}@examvault.com`;
+        const userCredential = await window.signInWithEmailAndPassword(window.auth, email, password);
+        const uid = userCredential.user.uid;
+        
+        const userDoc = await window.firestore.getDoc(window.firestore.doc(window.db, 'users', uid));
+        
+        if (userDoc.exists()) {
+            currentUser = { uid, ...userDoc.data() };
+        } else {
+            currentUser = {
+                uid,
+                username: username,
+                role: username === 'admin' ? 'admin' : 'user',
+                email: email
+            };
+            await window.firestore.setDoc(window.firestore.doc(window.db, 'users', uid), currentUser);
         }
-
+        
+        localStorage.setItem('examvault_session', JSON.stringify({ uid }));
+        showApp();
+        
+    } catch (error) {
+        console.error(error);
+        btn.innerHTML = '<span>Sign In</span>';
+        errorDiv.classList.remove('hidden');
+        errorDiv.textContent = error.message;
+    }
+}
         function showApp() {
             document.getElementById('loginScreen').classList.add('hidden-section');
             document.getElementById('app').classList.remove('hidden-section');
@@ -345,5 +318,6 @@
     </script>
 </body>
 </html>
+
 
 
